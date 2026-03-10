@@ -1,0 +1,82 @@
+name: Production Deployment
+
+on:
+  push:
+    branches:
+      - main
+
+# Define environment variables used across jobs
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Build Frontend Image
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
+          
+      # Build Backend Image
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest
+
+  deploy:
+    name: Deploy to Production
+    needs: build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup SSH Keys and Deploy
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
+          API_HOST: "rest_api"
+        run: |
+          # Start ssh-agent
+          eval $(ssh-agent -s)
+          
+          # Add private key
+          echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+          
+          # Setup known_hosts
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan -H $REMOTE_HOST >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+          # Deploy via Docker Connect
+          export DOCKER_HOST="ssh://ubuntu@$REMOTE_HOST"
+          echo "Deploying to production..."
+          
+          # Make sure to pass along any environment variables locally
+          REMOTE_HOST=$REMOTE_HOST API_HOST=$API_HOST docker compose -f docker-compose.yml up -d

@@ -1,0 +1,235 @@
+:root {
+    /* Light Theme (Default) */
+    --bg-primary: #fafafa;
+    --bg-secondary: #ffffff;
+    --text-primary: #262626;
+    /* soot */
+    --text-secondary: #666666;
+    --border-color: #eeeeee;
+    --card-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+    --accent-primary: #FFE000;
+    /* buttercup */
+}
+
+[data-theme="dark"] {
+    /* Dark Theme */
+    --bg-primary: #1a1a1a;
+    --bg-secondary: #2d2d2d;
+    --text-primary: #f5f5f5;
+    /* High contrast off-white */
+    --text-secondary: #d0d0d0;
+    /* Better visibility gray */
+    --border-color: #505050;
+    /* Slightly lighter border */
+    --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    --accent-primary: #FFE000;
+    /* buttercup (keeps brand identity) */
+}
+
+/* Apply theme to the main container */
+#main-container {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Base styles for cards within the themed container */
+#main-container .card {
+    background-color: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+.text-muted {
+    color: var(--text-secondary) !important;
+}
+
+/* Default header colors - allow overrides */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    color: var(--text-primary);
+}
+
+/* Dropdown styling for dark mode */
+[data-theme="dark"] .Select-control {
+    background-color: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .Select-menu-outer {
+    background-color: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .Select-value-label {
+    color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .Select-input>input {
+    color: var(--text-primary);
+}
+
+/* --- Extracted Component Styles --- */
+
+/* KPI Cards */
+.kpi-card-subtitle {
+    font-size: 0.80rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+    margin-right: 5px;
+    margin-bottom: 0.25rem;
+}
+
+.kpi-card-info-icon {
+    font-size: 0.8rem;
+    color: #ccc;
+    cursor: pointer;
+}
+
+.kpi-card-tooltip {
+    font-size: 0.8rem;
+}
+
+.kpi-card-title {
+    font-weight: bold;
+    font-size: 1.40rem;
+    margin-bottom: 0px;
+}
+
+.kpi-card-container {
+    padding: 15px;
+}
+
+.kpi-card-shadow {
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    box-shadow: var(--card-shadow);
+}
+
+/* Comparisons Table */
+.comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.comparison-diff {
+    font-weight: bold;
+}
+
+/* Header */
+#header-container {
+    background: var(--accent-primary);
+    padding: 14px 20px;
+    border-bottom: 4px solid #262626;
+    /* Soot */
+}
+
+.header-title {
+    margin: 0;
+    color: #262626;
+    /* Soot */
+}
+
+.header-subtitle {
+    margin: 6px 0 0 0;
+    color: #262626;
+    /* Soot */
+}
+
+.theme-toggle {
+    margin-right: 20px;
+    margin-top: 10px;
+}
+
+.theme-toggle .form-check-label {
+    color: #262626 !important;
+    /* Always dark to contrast with yellow header */
+    font-weight: 600;
+}
+
+/* Controls */
+.controls-card {
+    padding: 12px;
+    border-radius: 8px;
+}
+
+.controls-header {
+    margin: 0 0 10px 0;
+}
+
+.controls-label {
+    font-weight: 600;
+}
+
+.controls-dropdown {
+    margin-bottom: 10px;
+}
+
+/* Stats Table */
+.stats-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+/* Device Stats Cards */
+.device-stats-card {
+    border-radius: 8px;
+    box-shadow: var(--card-shadow);
+}
+
+.device-stats-body {
+    padding: 15px;
+}
+
+/* Dark Mode Overrides for Specific Components */
+
+/* Accordion */
+[data-theme="dark"] .accordion-item {
+    background-color: var(--bg-secondary);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .accordion-button {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .accordion-button:not(.collapsed) {
+    background-color: var(--bg-primary);
+    color: var(--accent-primary);
+    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, .125);
+}
+
+[data-theme="dark"] .accordion-button::after {
+    filter: invert(1);
+}
+
+[data-theme="dark"] .accordion-body {
+    background-color: var(--bg-secondary);
+    color: var(--text-secondary);
+}
+
+/* Alerts */
+[data-theme="dark"] .alert-warning {
+    background-color: #3b3a30;
+    border-color: #ffd700;
+    color: #ffd700;
+}
+
+[data-theme="dark"] .alert-heading {
+    color: #ffffff;
+}
+
+.device-stats-title {
+    margin: 0 0 8px 0;
+}

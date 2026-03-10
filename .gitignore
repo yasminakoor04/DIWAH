@@ -1,0 +1,44 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Output files
+output/
+*.json
+*.html
+
+# InfluxDB data and backups (large, sensitive)
+influxdb-data/
+influxdb-config/
+influxdb-backups/
+
+# Environment
+.env
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Large raw data files
+*RAW.csv
+*RAW*.csv
+diwah-anonymized/
+
+# Database Export files
+cumulus_export_*.csv
+
+# Additional caches
+tmp/
+.pytest_cache/

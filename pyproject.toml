@@ -1,0 +1,101 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "diwah-dashboard"
+version = "1.0.0"
+description = "DIWAH Analytics Dashboard for wearable sensor validation"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Linnaeus University", email = "diwah@lnu.se"}
+]
+keywords = ["wearable", "sensors", "analytics", "dashboard", "accelerometer"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+
+dependencies = [
+    "pandas>=2.0.0,<3.0.0",
+    "numpy>=1.24.0,<2.0.0",
+    "scipy>=1.10.0,<2.0.0",
+    "plotly>=5.18.0,<6.0.0",
+    "seaborn>=0.13.0,<1.0.0",
+    "matplotlib>=3.8.0,<4.0.0",
+    "dash>=2.14.0,<3.0.0",
+    "dash-bootstrap-components>=1.5.0,<2.0.0",
+    "influxdb-client>=1.38.0,<2.0.0",
+    "python-dotenv>=1.0.0,<2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0,<8.0.0",
+    "pytest-cov>=4.1.0,<5.0.0",
+    "mypy>=1.7.0,<2.0.0",
+    "pandas-stubs>=2.0.0",
+    "flake8>=6.1.0,<7.0.0",
+    "black>=23.12.0,<24.0.0",
+    "isort>=5.13.0,<6.0.0",
+]
+
+[project.scripts]
+diwah-dashboard = "src.analytics_dashboard:run_server"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.black]
+line-length = 100
+target-version = ['py310', 'py311', 'py312']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+    | \.venv
+    | archive
+    | __pycache__
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+skip = [".venv", "archive"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_ignores = true
+ignore_missing_imports = true
+exclude = ["archive", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["tests/*", "archive/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]
