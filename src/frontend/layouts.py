@@ -174,19 +174,13 @@ def create_controls(subjects: List[str], id_prefix: str = "") -> html.Div:
         html.Label('Compare with', className="controls-label"),
         dcc.Dropdown(id=f'{id_prefix}compare-sess-dd', placeholder='Select to compare...'),
         
-        html.Hr(style={'margin': '20px 0', 'borderTop': '1px solid #eee'}),
         html.Div([
-            html.H6('Data Quality', className="controls-header", style={'margin': 0}),
-            html.Div(id=f'{id_prefix}sidebar-quality-text', style={
-                'fontSize': '0.75rem', 'color': 'var(--text-secondary)', 'marginBottom': '10px'
-            }),
             dbc.Switch(
                 id=f'{id_prefix}exclude-bad-data-switch',
-                label="Exclude bad data",
                 value=False,
-                style={'marginBottom': 0}
+                style={'display': 'none'}
             ),
-        ], style={'padding': '10px', 'backgroundColor': 'var(--bg-secondary)', 'borderRadius': '8px', 'border': '1px solid var(--border-color)'})
+        ], style={'display': 'none'})
     ], className="card controls-card")
 
 
@@ -196,7 +190,6 @@ def create_main_tabs() -> dbc.Tabs:
         dbc.Tab(label='Time Series', tab_id='tab-timeseries'),
         dbc.Tab(label='Statistics', tab_id='tab-stats'),
         dbc.Tab(label='Correlations', tab_id='tab-corr'),
-        dbc.Tab(label='Statistical Comparison', tab_id='tab-compare'),
         dbc.Tab(label='About', tab_id='tab-about')
     ], id='tabs', active_tab='tab-timeseries')
 

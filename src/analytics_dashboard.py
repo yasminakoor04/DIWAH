@@ -383,25 +383,6 @@ def render_tab(tab, sub1, sess1, comp_sess1, sub2, sess2, comp_sess2, is_dark_mo
             create_stats_table(stats)
         ])
     
-    elif tab == 'tab-compare':
-        if not comp_sess:
-            return html.Div('Select comparison session', style={'padding': '40px', 'textAlign': 'center'})
-            
-        data = load_data(sub, sess)
-        comp_data = load_data(sub, comp_sess)
-        
-        if not data or not comp_data:
-            return html.Div('Data missing for comparison', style={'padding': '40px', 'textAlign': 'center'})
-            
-        # Compare sessions
-        comp_res = compare_activity_rest(data, comp_data)
-        
-        return html.Div([
-            html.H3(f"Statistical Comparison: {sess} vs {comp_sess}"),
-            html.P("Comparing mean magnitude and variability between sessions."),
-            make_comparison_table(comp_res)
-        ], style={'padding': '20px'})
-
     elif tab == 'tab-about':
         from src.frontend.layouts import create_about_layout
         return create_about_layout()
