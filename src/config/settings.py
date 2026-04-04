@@ -5,7 +5,6 @@ These settings control data processing behavior and can be overridden
 via environment variables where noted.
 """
 
-import os
 from typing import List
 
 # Window size for accelerometer magnitude aggregation (seconds)
@@ -18,13 +17,8 @@ SAMPLING_RATES = {
     'emotibit': 25       # EmotiBit
 }
 
-# Excluded subjects - these are filtered out from analysis
-# Reason: Subject 2004 has corrupted/incomplete accelerometer data
-# Override: Set EXCLUDED_SUBJECTS=2004,2005 environment variable
-_excluded_str = os.getenv("EXCLUDED_SUBJECTS", "2004")
-EXCLUDED_SUBJECTS: List[str] = [
-    s.strip() for s in _excluded_str.split(",") if s.strip()
-]
+# Excluded subjects should stay empty so all participants remain visible in UI selectors.
+EXCLUDED_SUBJECTS: List[str] = []
 
 # Statistical analysis settings
 MIN_SAMPLES_FOR_CORRELATION = 10  # Minimum samples for correlation calculation

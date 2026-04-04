@@ -2,10 +2,10 @@
 Correlation analysis module using InfluxDB for DIWAH Analytics Dashboard.
 
 This module provides functions for calculating correlations between devices
-using data from InfluxDB. All data including participant demographics is
-loaded from InfluxDB - no local file access required.
+using data from InfluxDB.
 """
 
+import os
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -13,8 +13,8 @@ from scipy import stats
 import logging
 from typing import Dict, List, Optional, Tuple, Any
 
-from ..config import INFLUX_BUCKET, INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG
-from .database import get_query_api, tag_values, health_check
+from ..config import INFLUX_BUCKET
+from .database import get_query_api, health_check
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -23,10 +23,22 @@ logger = logging.getLogger(__name__)
 _demographics_cache = None
 _cohort_cache = None
 
+COHORT_SUBJECTS: List[str] = [
+    "2002", "2003", "2004", "2005", "2006", "2007", "2008", "2009", "2010",
+    "2013", "2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021",
+    "2022", "2024", "2025", "2026", "2027", "2030", "2032", "2033", "2034",
+    "2035", "2036", "2042",
+]
+
+DEFAULT_DEMOGRAPHICS_CSV = (
+    r"C:\Users\Hanna\Linnéuniversitetet\Oxana Sachenkova - "
+    r"diwah-wearable-anonymized\participants_anonymized.csv"
+)
+
 
 def load_demographics() -> pd.DataFrame:
     """
-    Load participant demographics from InfluxDB.
+    Load participant demographics from local CSV.
     
     Returns:
         DataFrame with columns: Subject, Gender, Length_cm, Weight_kg, Age_years, BMI_kg_m2
@@ -34,52 +46,56 @@ def load_demographics() -> pd.DataFrame:
     global _demographics_cache
     if _demographics_cache is not None:
         return _demographics_cache
-    if not health_check():
-        logger.warning("InfluxDB not available - cannot load demographics")
-        return pd.DataFrame()
-    
     try:
-        from influxdb_client import InfluxDBClient
-        
-        client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
-        query_api = client.query_api()
-        
-        flux = f'''from(bucket: "{INFLUX_BUCKET}")
-            |> range(start: 0)
-            |> filter(fn: (r) => r._measurement == "participants")
-            |> pivot(rowKey: ["_time", "subject", "gender"], columnKey: ["_field"], valueColumn: "_value")
-        '''
-        
-        df = query_api.query_data_frame(flux)
-        client.close()
-        
-        if isinstance(df, list) and df:
-            df = pd.concat(df, ignore_index=True)
-        
-        if df is None or df.empty:
-            logger.info("No demographics data found in InfluxDB")
+        csv_path = Path(os.getenv("DEMOGRAPHICS_CSV", DEFAULT_DEMOGRAPHICS_CSV))
+        if not csv_path.exists():
+            logger.warning(f"Demographics CSV not found: {csv_path}")
             return pd.DataFrame()
-        
-        # Rename columns to expected format
+
+        df = pd.read_csv(csv_path)
+        if df.empty:
+            return pd.DataFrame()
+
         col_mapping = {
-            'subject': 'Subject',
-            'gender': 'Gender',
-            'length_cm': 'Length_cm',
-            'weight_kg': 'Weight_kg', 
-            'age_years': 'Age_years',
-            'bmi': 'BMI_kg_m2'
+            "ID": "Subject",
+            "subject": "Subject",
+            "gender": "Gender",
+            "Gender": "Gender",
+            "length_cm": "Length_cm",
+            "Length_cm": "Length_cm",
+            "weight_kg": "Weight_kg",
+            "Weight_kg": "Weight_kg",
+            "age_years": "Age_years",
+            "Age_years": "Age_years",
+            "bmi": "BMI_kg_m2",
+            "BMI_kg_m2": "BMI_kg_m2",
         }
         df = df.rename(columns=col_mapping)
-        
-        # Keep only relevant columns
-        keep_cols = ['Subject', 'Gender', 'Length_cm', 'Weight_kg', 'Age_years', 'BMI_kg_m2']
+
+        if "Subject" in df.columns:
+            df["Subject"] = (
+                df["Subject"]
+                .astype(str)
+                .str.replace("Diwah", "", regex=False)
+                .str.strip()
+            )
+
+        if "Gender" in df.columns:
+            df["Gender"] = (
+                df["Gender"]
+                .replace({"Kvinna": "Female", "Man": "Male"})
+                .astype(str)
+                .str.strip()
+            )
+
+        keep_cols = ["Subject", "Gender", "Length_cm", "Weight_kg", "Age_years", "BMI_kg_m2"]
         df = df[[c for c in keep_cols if c in df.columns]]
-        
-        _demographics_cache = df.drop_duplicates(subset=['Subject'])
+
+        _demographics_cache = df.drop_duplicates(subset=["Subject"]) if "Subject" in df.columns else df
         return _demographics_cache
         
     except Exception as e:
-        logger.warning(f"Could not load demographics from InfluxDB: {e}")
+        logger.warning(f"Could not load demographics from CSV: {e}")
         return pd.DataFrame()
 
 
@@ -189,35 +205,27 @@ def get_cohort_analysis(session_filter: str = 'activity') -> pd.DataFrame:
     """
     Generate cohort-level analysis dataframe from InfluxDB.
     Columns: Subject, Age, Gender, BMI, r_Bangle_Actigraph, ...
-    All data including demographics is loaded from InfluxDB.
+    Accelerometer data is loaded from InfluxDB and demographics from local CSV.
     """
     global _cohort_cache
     if _cohort_cache is not None:
         return _cohort_cache
-    # 1. Load demographics from InfluxDB
+    # 1. Load demographics from local CSV
     demo_df = load_demographics()
     
-    # 2. Get all subjects from InfluxDB
-    subjects = tag_values('subject')
-    
-    if not subjects:
-        logger.warning("No subjects found in InfluxDB")
-        return pd.DataFrame()
+    # 2. Use fixed subject roster to ensure full cohort accounting.
+    subjects = COHORT_SUBJECTS
     
     # 3. Calculate correlations for all subjects
     corr_data = []
     for sub in subjects:
         # We only want to correlate the specific requested session (default: activity) to prevent rest data skewing metrics.
         corrs = calculate_subject_correlation(sub, session_filter)
-        if corrs:
-            row = {'Subject': sub, 'Session': session_filter}
-            row.update(corrs)
-            corr_data.append(row)
+        row = {'Subject': sub, 'Session': session_filter}
+        row.update(corrs)
+        corr_data.append(row)
             
     corr_df = pd.DataFrame(corr_data)
-    
-    if corr_df.empty:
-        return pd.DataFrame()
     
     # 4. Merge with demographics if available
     if not demo_df.empty and 'Subject' in demo_df.columns:
