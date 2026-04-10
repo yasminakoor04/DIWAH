@@ -32,7 +32,10 @@ COHORT_SUBJECTS: List[str] = [
 
 from ..config.paths import DATA_ROOT
 
-DEFAULT_DEMOGRAPHICS_CSV = DATA_ROOT / "participants_anonymized.csv"
+# Check project-local data/ folder first (works on server), then fall back to DATA_ROOT
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_LOCAL_DEMO = _PROJECT_ROOT / "data" / "participants_anonymized.csv"
+DEFAULT_DEMOGRAPHICS_CSV = _LOCAL_DEMO if _LOCAL_DEMO.exists() else DATA_ROOT / "participants_anonymized.csv"
 
 
 def load_demographics() -> pd.DataFrame:
