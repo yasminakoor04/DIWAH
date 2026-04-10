@@ -8,15 +8,17 @@ import os
 from pathlib import Path
 
 # Data root - override with DATA_ROOT environment variable
-# Default: look for local diwah-anonymized folder, then fall back to OneDrive path
+# Default: look for Hanna's OneDrive path, then the legacy yasmi path
 _project_root = Path(__file__).parent.parent.parent
-_local_data = Path(r"c:\Users\yasmi\Downloads\diwah-anonymized\diwah-anonymized")
-_onedrive_fallback = r"C:\Users\yasmi\Linnéuniversitetet\Oxana Sachenkova - diwah-wearable-anonymized"
+_hanna_onedrive = Path(r"C:\Users\Hanna\Linnéuniversitetet\Oxana Sachenkova - diwah-wearable-anonymized")
+_legacy_yasmi = Path(r"C:\Users\yasmi\Downloads\diwah-anonymized\diwah-anonymized")
 
-if _local_data.exists():
-    _default_data_root = str(_local_data)
+if _hanna_onedrive.exists():
+    _default_data_root = str(_hanna_onedrive)
+elif _legacy_yasmi.exists():
+    _default_data_root = str(_legacy_yasmi)
 else:
-    _default_data_root = _onedrive_fallback
+    _default_data_root = str(_hanna_onedrive)  # Best guess for server env variable override
 
 DATA_ROOT = Path(os.getenv("DATA_ROOT", _default_data_root))
 

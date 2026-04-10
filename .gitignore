@@ -42,3 +42,8 @@ cumulus_export_*.csv
 # Additional caches
 tmp/
 .pytest_cache/
+
+# Secured manual data
+data/
+data_secured.enc
+*archive*

@@ -174,19 +174,13 @@ def create_controls(subjects: List[str], id_prefix: str = "") -> html.Div:
         html.Label('Compare with', className="controls-label"),
         dcc.Dropdown(id=f'{id_prefix}compare-sess-dd', placeholder='Select to compare...'),
         
-        html.Hr(style={'margin': '20px 0', 'borderTop': '1px solid #eee'}),
         html.Div([
-            html.H6('Data Quality', className="controls-header", style={'margin': 0}),
-            html.Div(id=f'{id_prefix}sidebar-quality-text', style={
-                'fontSize': '0.75rem', 'color': 'var(--text-secondary)', 'marginBottom': '10px'
-            }),
             dbc.Switch(
                 id=f'{id_prefix}exclude-bad-data-switch',
-                label="Exclude bad data",
                 value=False,
-                style={'marginBottom': 0}
+                style={'display': 'none'}
             ),
-        ], style={'padding': '10px', 'backgroundColor': 'var(--bg-secondary)', 'borderRadius': '8px', 'border': '1px solid var(--border-color)'})
+        ], style={'display': 'none'})
     ], className="card controls-card")
 
 
@@ -196,7 +190,6 @@ def create_main_tabs() -> dbc.Tabs:
         dbc.Tab(label='Time Series', tab_id='tab-timeseries'),
         dbc.Tab(label='Statistics', tab_id='tab-stats'),
         dbc.Tab(label='Correlations', tab_id='tab-corr'),
-        dbc.Tab(label='Statistical Comparison', tab_id='tab-compare'),
         dbc.Tab(label='About', tab_id='tab-about')
     ], id='tabs', active_tab='tab-timeseries')
 
@@ -322,17 +315,20 @@ def create_correlation_layout(corr_df: pd.DataFrame, subjects: List[str], templa
     mw_test = {}
     
     if not corr_df.empty and 'Gender' in corr_df.columns and 'Bangle_Actigraph' in corr_df.columns:
-        m_df = corr_df[corr_df['Gender'] == 'Male']
+        # Only include subjects with valid correlation data
+        valid_df = corr_df.dropna(subset=['Bangle_Actigraph'])
+        
+        m_df = valid_df[valid_df['Gender'] == 'Male']
         if not m_df.empty:
             male_r = m_df['Bangle_Actigraph'].mean()
             male_n = len(m_df)
             
-        f_df = corr_df[corr_df['Gender'] == 'Female']
+        f_df = valid_df[valid_df['Gender'] == 'Female']
         if not f_df.empty:
             female_r = f_df['Bangle_Actigraph'].mean()
             female_n = len(f_df)
             
-        res = perform_subgroup_comparison(corr_df, 'Gender', 'Bangle_Actigraph')
+        res = perform_subgroup_comparison(valid_df, 'Gender', 'Bangle_Actigraph')
         if 'p_value' in res:
             p_val = res['p_value']
             u_stat = res['u_stat']
