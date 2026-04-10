@@ -30,10 +30,9 @@ COHORT_SUBJECTS: List[str] = [
     "2035", "2036", "2042",
 ]
 
-DEFAULT_DEMOGRAPHICS_CSV = (
-    r"C:\Users\Hanna\Linnéuniversitetet\Oxana Sachenkova - "
-    r"diwah-wearable-anonymized\participants_anonymized.csv"
-)
+from ..config.paths import DATA_ROOT
+
+DEFAULT_DEMOGRAPHICS_CSV = DATA_ROOT / "participants_anonymized.csv"
 
 
 def load_demographics() -> pd.DataFrame:
