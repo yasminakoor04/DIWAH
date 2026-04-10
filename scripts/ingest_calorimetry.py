@@ -9,12 +9,19 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 
 from src.config import INFLUX_BUCKET, INFLUX_ORG, INFLUX_TOKEN, INFLUX_URL
 
-# Source: manually trimmed OneDrive folder
-DEFAULT_TRIMMED = Path(
+# Default source: project-relative data/ folder (works on both Windows and Ubuntu server)
+# On Windows: copy master_epochs.csv from OneDrive to DIWAH/data/ first
+# On Ubuntu server: scp the file to /var/www/diwah/DIWAH/data/
+_DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+DEFAULT_TRIMMED = _DATA_DIR / "master_epochs_calorimetry.csv"
+
+# Fallback: original OneDrive location (Windows only)
+_ONEDRIVE_FALLBACK = Path(
     r"C:\Users\Hanna\OneDrive - Linnéuniversitetet\THESIS 2026"
     r"\pictures of trimmed subjects_ALL\trimmed_CSV\master_epochs.csv"
 )
-
+if not DEFAULT_TRIMMED.exists() and _ONEDRIVE_FALLBACK.exists():
+    DEFAULT_TRIMMED = _ONEDRIVE_FALLBACK
 # Same exclusion list as ingest_trimmed.py
 BAD_SUBJECTS = ["2004", "2005", "2008", "2014", "2019", "2032"]
 

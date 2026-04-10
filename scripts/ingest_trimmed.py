@@ -26,8 +26,9 @@ from src.config import INFLUX_BUCKET, INFLUX_ORG, INFLUX_TOKEN, INFLUX_URL
 
 BAD_SUBJECTS: List[str] = ["2004", "2005", "2008", "2014", "2019", "2032"]
 
-DEFAULT_TRIMMED = Path(r"C:\Users\Hanna\Downloads\OneDrive_1_4-2-2026\data\processed\master_epochs.csv")
-DEFAULT_UNTRIMMED = Path(r"C:\Users\Hanna\Downloads\OneDrive_1_4-2-2026\data\processed\master_epochs_untrimmed.csv")
+_DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+DEFAULT_TRIMMED = _DATA_DIR / "master_epochs.csv"
+DEFAULT_UNTRIMMED = _DATA_DIR / "master_epochs_untrimmed.csv"
 
 VM_TO_DEVICE: Dict[str, str] = {
     "vm_mean_actigraph": "actigraph",
