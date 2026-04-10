@@ -45,7 +45,7 @@ def normalize_subject(series: pd.Series) -> pd.Series:
 
 
 def ensure_subject_column(df: pd.DataFrame) -> pd.DataFrame:
-    for candidate in ["subject", "Subject", "ID", "id"]:
+    for candidate in ["subject_id", "subject", "Subject", "ID", "id"]:
         if candidate in df.columns:
             out = df.copy()
             out["subject"] = normalize_subject(out[candidate])
