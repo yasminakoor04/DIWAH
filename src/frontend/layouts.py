@@ -315,17 +315,20 @@ def create_correlation_layout(corr_df: pd.DataFrame, subjects: List[str], templa
     mw_test = {}
     
     if not corr_df.empty and 'Gender' in corr_df.columns and 'Bangle_Actigraph' in corr_df.columns:
-        m_df = corr_df[corr_df['Gender'] == 'Male']
+        # Only include subjects with valid correlation data
+        valid_df = corr_df.dropna(subset=['Bangle_Actigraph'])
+        
+        m_df = valid_df[valid_df['Gender'] == 'Male']
         if not m_df.empty:
             male_r = m_df['Bangle_Actigraph'].mean()
             male_n = len(m_df)
             
-        f_df = corr_df[corr_df['Gender'] == 'Female']
+        f_df = valid_df[valid_df['Gender'] == 'Female']
         if not f_df.empty:
             female_r = f_df['Bangle_Actigraph'].mean()
             female_n = len(f_df)
             
-        res = perform_subgroup_comparison(corr_df, 'Gender', 'Bangle_Actigraph')
+        res = perform_subgroup_comparison(valid_df, 'Gender', 'Bangle_Actigraph')
         if 'p_value' in res:
             p_val = res['p_value']
             u_stat = res['u_stat']
