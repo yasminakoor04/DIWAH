@@ -190,6 +190,7 @@ def create_main_tabs() -> dbc.Tabs:
         dbc.Tab(label='Time Series', tab_id='tab-timeseries'),
         dbc.Tab(label='Statistics', tab_id='tab-stats'),
         dbc.Tab(label='Correlations', tab_id='tab-corr'),
+        dbc.Tab(label='Machine Learning', tab_id='tab-ml'),
         dbc.Tab(label='About', tab_id='tab-about')
     ], id='tabs', active_tab='tab-timeseries')
 
@@ -761,3 +762,147 @@ def create_about_layout() -> html.Div:
         
     ], className="p-4")
 
+import plotly.graph_objects as go
+
+def create_ml_layout() -> html.Div:
+    """
+    Renders the Machine Learning Dashboard evaluating Random Forest vs MLR.
+    """
+    metrics_data = {
+        'ActiGraph (Clinical)': {'MLR_MAE': 4.308, 'MLR_R2': -1.228, 'RF_MAE': 2.066, 'RF_R2': 0.518},
+        'EmotiBit (Consumer)': {'MLR_MAE': 7.288, 'MLR_R2': -7.325, 'RF_MAE': 2.033, 'RF_R2': 0.627},
+        'Bangle.js (Consumer)': {'MLR_MAE': 23.183, 'MLR_R2': -25.000, 'RF_MAE': 1.995, 'RF_R2': 0.561}
+    }
+
+    devices = list(metrics_data.keys())
+    
+    # Extract data for plotting
+    mlr_r2 = [metrics_data[d]['MLR_R2'] for d in devices]
+    rf_r2 = [metrics_data[d]['RF_R2'] for d in devices]
+    
+    mlr_mae = [metrics_data[d]['MLR_MAE'] for d in devices]
+    rf_mae = [metrics_data[d]['RF_MAE'] for d in devices]
+
+    # --- CHART 1: R-Squared (Explained Variance) ---
+    fig_r2 = go.Figure()
+    fig_r2.add_trace(go.Bar(
+        x=devices, y=mlr_r2,
+        name='Multiple Linear Regression',
+        marker_color='#d9534f',
+        text=[f"{val:.3f}" for val in mlr_r2],
+        textposition='outside',
+        hovertemplate="<b>%{x}</b><br>MLR R²: %{y:.3f}<extra></extra>"
+    ))
+    fig_r2.add_trace(go.Bar(
+        x=devices, y=rf_r2,
+        name='Random Forest',
+        marker_color='#02b875',
+        text=[f"{val:.3f}" for val in rf_r2],
+        textposition='outside',
+        hovertemplate="<b>%{x}</b><br>Random Forest R²: %{y:.3f}<extra></extra>"
+    ))
+    
+    fig_r2.update_layout(
+        title={'text': "Model Performance: R² Score (Higher is Better)", 'font': {'size': 20, 'family': 'Inter, sans-serif'}},
+        yaxis_title="R-squared (R²)",
+        barmode='group',
+        template='plotly_white',
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        margin=dict(t=80, b=40, l=40, r=40),
+        yaxis=dict(zeroline=True, zerolinewidth=2, zerolinecolor='black'),
+        hovermode="x unified"
+    )
+
+    # --- CHART 2: Mean Absolute Error (MAE) ---
+    fig_mae = go.Figure()
+    fig_mae.add_trace(go.Bar(
+        x=devices, y=mlr_mae,
+        name='Multiple Linear Regression',
+        marker_color='#d9534f',
+        text=[f"{val:.3f}" for val in mlr_mae],
+        textposition='outside',
+        hovertemplate="<b>%{x}</b><br>MLR MAE: %{y:.3f} METs<extra></extra>"
+    ))
+    fig_mae.add_trace(go.Bar(
+        x=devices, y=rf_mae,
+        name='Random Forest',
+        marker_color='#02b875',
+        text=[f"{val:.3f}" for val in rf_mae],
+        textposition='outside',
+        hovertemplate="<b>%{x}</b><br>Random Forest MAE: %{y:.3f} METs<extra></extra>"
+    ))
+    
+    fig_mae.update_layout(
+        title={'text': "Prediction Error: MAE in METs (Lower is Better)", 'font': {'size': 20, 'family': 'Inter, sans-serif'}},
+        yaxis_title="Mean Absolute Error (METs)",
+        barmode='group',
+        template='plotly_white',
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        margin=dict(t=80, b=40, l=40, r=40),
+        hovermode="x unified"
+    )
+
+    return html.Div([
+        html.Br(),
+        dbc.Row([
+            dbc.Col([
+                html.H2("Machine Learning Evaluation", className="mb-2 text-primary fw-bold"),
+                html.P(
+                    "Random Forest successfully handles noisy, collinear wearable features, "
+                    "dropping Mean Absolute Error to ~2 METs. Notably, consumer devices "
+                    "(EmotiBit, Bangle.js) outperform the clinical ActiGraph baseline in this non-linear pipeline.",
+                    className="lead text-muted",
+                    style={'fontSize': '1.1rem'}
+                ),
+                html.Hr(className="my-4"),
+            ])
+        ]),
+        
+        dbc.Row([
+            dbc.Col(dcc.Graph(figure=fig_r2, config={'displayModeBar': False}), lg=6, md=12, className="mb-4"),
+            dbc.Col(dcc.Graph(figure=fig_mae, config={'displayModeBar': False}), lg=6, md=12, className="mb-4")
+        ]),
+        
+        # --- Interactive Scatter Plot Section ---
+        dbc.Row([
+            dbc.Col([
+                html.H4("True vs. Predicted Exercise Intensity (METs)", className="text-primary mt-4 mb-3 fw-bold")
+            ])
+        ]),
+        dbc.Row([
+            dbc.Col([
+                html.Label("Select Device:", className="fw-bold mb-1"),
+                dcc.Dropdown(
+                    id="ml-device-dd",
+                    options=[
+                        {"label": "ActiGraph", "value": "ActiGraph"},
+                        {"label": "EmotiBit", "value": "EmotiBit"},
+                        {"label": "Bangle.js", "value": "Bangle.js"}
+                    ],
+                    value="EmotiBit",
+                    clearable=False,
+                    className="mb-3"
+                )
+            ], md=4),
+            
+            dbc.Col([
+                html.Label("Select Model:", className="fw-bold mb-1"),
+                dcc.Dropdown(
+                    id="ml-model-dd",
+                    options=[
+                        {"label": "Multiple Linear Regression", "value": "Multiple Linear Regression"},
+                        {"label": "Random Forest", "value": "Random Forest"}
+                    ],
+                    value="Random Forest",
+                    clearable=False,
+                    className="mb-3"
+                )
+            ], md=4)
+        ], className="bg-light p-3 rounded shadow-sm mb-4"),
+        
+        dbc.Row([
+            dbc.Col([
+                dcc.Graph(id="ml-scatter-plot", config={"displayModeBar": False})
+            ])
+        ])
+    ])

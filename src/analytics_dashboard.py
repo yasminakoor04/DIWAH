@@ -10,6 +10,8 @@ import os
 from typing import Dict, Any, Optional, List, Tuple
 
 import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
 import dash
 from dash import dcc, html, Input, Output, State
 import dash_bootstrap_components as dbc
@@ -338,7 +340,11 @@ def render_tab(tab, sub1, sess1, comp_sess1, sub2, sess2, comp_sess2, is_dark_mo
         if not corr_df.empty and 'Subject' in corr_df.columns:
             subjects = sorted(corr_df['Subject'].astype(str).unique())
         return create_correlation_layout(corr_df, subjects, template=template)
-        
+
+    if tab == 'tab-ml':
+        from src.frontend.layouts import create_ml_layout
+        return create_ml_layout()
+                
     # The remaining tabs require subject and session
     if not sub or not sess:
         return html.Div('Select subject and session', style={'padding': '40px', 'textAlign': 'center'})
@@ -627,6 +633,60 @@ def toggle_sidebar(n1, is_open):
     if n1:
         return not is_open
     return is_open
+
+
+# --- Simulated Data for ML Tab ---
+np.random.seed(42)
+n_samples = 300
+true_mets = np.random.uniform(1.0, 15.0, n_samples)
+ml_data = []
+ml_devices = ["ActiGraph", "EmotiBit", "Bangle.js"]
+
+for dev in ml_devices:
+    rf_pred = np.clip(true_mets + np.random.normal(0, 1.0, n_samples), 0.5, 18.0)
+    for t_val, p_val in zip(true_mets, rf_pred):
+        ml_data.append({"Device": dev, "Model": "Random Forest", "True_METs": t_val, "Pred_METs": p_val})
+        
+    if dev == "ActiGraph":
+        mlr_pred = true_mets + np.random.normal(0, 3.5, n_samples)
+    else:
+        mlr_pred = true_mets + np.random.uniform(-15, 30, n_samples)
+    for t_val, p_val in zip(true_mets, mlr_pred):
+        ml_data.append({"Device": dev, "Model": "Multiple Linear Regression", "True_METs": t_val, "Pred_METs": p_val})
+
+ml_df = pd.DataFrame(ml_data)
+
+@app.callback(
+    Output("ml-scatter-plot", "figure"),
+    [Input("ml-device-dd", "value"),
+     Input("ml-model-dd", "value")]
+)
+def update_ml_scatter(selected_device, selected_model):
+    filtered_df = ml_df[(ml_df["Device"] == selected_device) & (ml_df["Model"] == selected_model)]
+    fig = go.Figure()
+    
+    fig.add_trace(go.Scatter(
+        x=filtered_df["True_METs"], y=filtered_df["Pred_METs"],
+        mode="markers", name="Predictions",
+        marker=dict(color="#2c3e50", size=8, opacity=0.6, line=dict(width=1, color="white")),
+        hovertemplate="<b>True Intensity:</b> %{x:.2f} METs<br><b>Predicted:</b> %{y:.2f} METs<extra></extra>"
+    ))
+    
+    fig.add_trace(go.Scatter(
+        x=[0, 15], y=[0, 15], mode="lines", name="Perfect Prediction (y=x)",
+        line=dict(color="#e74c3c", width=3, dash="dash"), hoverinfo="skip"
+    ))
+    
+    y_range = [-20, 45] if (selected_model == "Multiple Linear Regression" and selected_device != "ActiGraph") else [0, 20]
+    
+    fig.update_layout(
+        title={"text": f"Predictive Accuracy: {selected_model} on {selected_device}", "font": {"size": 22}},
+        xaxis_title="True Intensity (METs)", yaxis_title="Predicted Intensity (METs)",
+        xaxis=dict(range=[0, 15], zeroline=False), yaxis=dict(range=y_range, zeroline=True, zerolinewidth=1, zerolinecolor="black"),
+        template="plotly_white", margin=dict(t=80, b=50, l=50, r=30),
+        legend=dict(x=0.01, y=0.98, bgcolor="rgba(255,255,255,0.8)"), hovermode="closest", height=600
+    )
+    return fig
 
 
 def run_server(host: str = None, port: int = 8050, debug: bool = False):
