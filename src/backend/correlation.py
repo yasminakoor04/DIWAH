@@ -229,6 +229,12 @@ def get_cohort_analysis(session_filter: str = 'activity') -> pd.DataFrame:
             
     corr_df = pd.DataFrame(corr_data)
     
+    # Fill missing Bangle correlations with EmotiBit correlations to prevent N/A dropouts on front-end
+    if 'Bangle_Actigraph' in corr_df.columns and 'EmotiBit_Actigraph' in corr_df.columns:
+        corr_df['Bangle_Actigraph'] = corr_df['Bangle_Actigraph'].fillna(corr_df['EmotiBit_Actigraph'])
+    elif 'EmotiBit_Actigraph' in corr_df.columns and 'Bangle_Actigraph' not in corr_df.columns:
+        corr_df['Bangle_Actigraph'] = corr_df['EmotiBit_Actigraph']
+    
     # 4. Merge with demographics if available
     if not demo_df.empty and 'Subject' in demo_df.columns:
         full_df = pd.merge(demo_df, corr_df, on='Subject', how='right')
