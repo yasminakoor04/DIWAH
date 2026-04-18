@@ -788,7 +788,7 @@ def create_ml_layout() -> html.Div:
     fig_r2.add_trace(go.Bar(
         x=devices, y=mlr_r2,
         name='Multiple Linear Regression',
-        marker_color='#d9534f',
+        marker_color=COLORS['crocus'],
         text=[f"{val:.3f}" for val in mlr_r2],
         textposition='outside',
         hovertemplate="<b>%{x}</b><br>MLR R²: %{y:.3f}<extra></extra>"
@@ -796,7 +796,7 @@ def create_ml_layout() -> html.Div:
     fig_r2.add_trace(go.Bar(
         x=devices, y=rf_r2,
         name='Random Forest',
-        marker_color='#02b875',
+        marker_color=COLORS['buttercup'],
         text=[f"{val:.3f}" for val in rf_r2],
         textposition='outside',
         hovertemplate="<b>%{x}</b><br>Random Forest R²: %{y:.3f}<extra></extra>"
@@ -818,7 +818,7 @@ def create_ml_layout() -> html.Div:
     fig_mae.add_trace(go.Bar(
         x=devices, y=mlr_mae,
         name='Multiple Linear Regression',
-        marker_color='#d9534f',
+        marker_color=COLORS['crocus'],
         text=[f"{val:.3f}" for val in mlr_mae],
         textposition='outside',
         hovertemplate="<b>%{x}</b><br>MLR MAE: %{y:.3f} METs<extra></extra>"
@@ -826,7 +826,7 @@ def create_ml_layout() -> html.Div:
     fig_mae.add_trace(go.Bar(
         x=devices, y=rf_mae,
         name='Random Forest',
-        marker_color='#02b875',
+        marker_color=COLORS['buttercup'],
         text=[f"{val:.3f}" for val in rf_mae],
         textposition='outside',
         hovertemplate="<b>%{x}</b><br>Random Forest MAE: %{y:.3f} METs<extra></extra>"

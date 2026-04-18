@@ -668,13 +668,13 @@ def update_ml_scatter(selected_device, selected_model):
     fig.add_trace(go.Scatter(
         x=filtered_df["True_METs"], y=filtered_df["Pred_METs"],
         mode="markers", name="Predictions",
-        marker=dict(color="#2c3e50", size=8, opacity=0.6, line=dict(width=1, color="white")),
+        marker=dict(color=COLORS['crocus'], size=8, opacity=0.6, line=dict(width=1, color="white")),
         hovertemplate="<b>True Intensity:</b> %{x:.2f} METs<br><b>Predicted:</b> %{y:.2f} METs<extra></extra>"
     ))
     
     fig.add_trace(go.Scatter(
         x=[0, 15], y=[0, 15], mode="lines", name="Perfect Prediction (y=x)",
-        line=dict(color="#e74c3c", width=3, dash="dash"), hoverinfo="skip"
+        line=dict(color=COLORS['buttercup'], width=3, dash="dash"), hoverinfo="skip"
     ))
     
     y_range = [-20, 45] if (selected_model == "Multiple Linear Regression" and selected_device != "ActiGraph") else [0, 20]
