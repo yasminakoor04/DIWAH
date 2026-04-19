@@ -167,12 +167,13 @@ def create_controls(subjects: List[str], id_prefix: str = "") -> html.Div:
             id=f'{id_prefix}sub-dd',
             options=[{'label': f"Participant {PARTICIPANT_MAPPING.get(str(s), s)}", 'value': s} for s in subjects],
             value=subjects[0] if subjects else None,
-            className="controls-dropdown"
+            className="controls-dropdown",
+            style={'color': '#212529'}
         ),
         html.Label('Session', className="controls-label"),
-        dcc.Dropdown(id=f'{id_prefix}sess-dd', className="controls-dropdown"),
+        dcc.Dropdown(id=f'{id_prefix}sess-dd', className="controls-dropdown", style={'color': '#212529'}),
         html.Label('Compare with', className="controls-label"),
-        dcc.Dropdown(id=f'{id_prefix}compare-sess-dd', placeholder='Select to compare...'),
+        dcc.Dropdown(id=f'{id_prefix}compare-sess-dd', placeholder='Select to compare...', style={'color': '#212529'}),
         
         html.Div([
             dbc.Switch(
@@ -773,6 +774,39 @@ def create_ml_layout() -> html.Div:
         'EmotiBit (Consumer)': {'MLR_MAE': 7.288, 'MLR_R2': -7.325, 'RF_MAE': 2.033, 'RF_R2': 0.627},
         'Bangle.js (Consumer)': {'MLR_MAE': 23.183, 'MLR_R2': -25.000, 'RF_MAE': 1.995, 'RF_R2': 0.561}
     }
+    
+    import json
+    from pathlib import Path
+    metrics_path = Path(__file__).resolve().parents[2] / "scripts" / "Acc_pipe" / "data" / "processed" / "ml_metrics.json"
+    if metrics_path.exists():
+        try:
+            with open(metrics_path, 'r') as f:
+                real_res = json.load(f)
+            
+            # Map the actual exported metrics back to our graph labels
+            if 'actigraph' in real_res:
+                metrics_data['ActiGraph (Clinical)'] = {
+                    'MLR_MAE': real_res['actigraph']['MLR']['MAE'],
+                    'MLR_R2': real_res['actigraph']['MLR']['R2'],
+                    'RF_MAE': real_res['actigraph']['RF']['MAE'],
+                    'RF_R2': real_res['actigraph']['RF']['R2']
+                }
+            if 'emotibit' in real_res:
+                metrics_data['EmotiBit (Consumer)'] = {
+                    'MLR_MAE': real_res['emotibit']['MLR']['MAE'],
+                    'MLR_R2': real_res['emotibit']['MLR']['R2'],
+                    'RF_MAE': real_res['emotibit']['RF']['MAE'],
+                    'RF_R2': real_res['emotibit']['RF']['R2']
+                }
+            if 'bangle' in real_res:
+                metrics_data['Bangle.js (Consumer)'] = {
+                    'MLR_MAE': real_res['bangle']['MLR']['MAE'],
+                    'MLR_R2': real_res['bangle']['MLR']['R2'],
+                    'RF_MAE': real_res['bangle']['RF']['MAE'],
+                    'RF_R2': real_res['bangle']['RF']['R2']
+                }
+        except Exception as e:
+            print(f"Error loading real ML metrics: {e}")
 
     devices = list(metrics_data.keys())
     
@@ -787,9 +821,9 @@ def create_ml_layout() -> html.Div:
     fig_r2 = go.Figure()
     fig_r2.add_trace(go.Bar(
         x=devices, y=mlr_r2,
-        name='Multiple Linear Regression',
+        name='Linear Regression',
         marker_color=COLORS['crocus'],
-        text=[f"{val:.3f}" for val in mlr_r2],
+        text=[f"{val:.2f}" for val in mlr_r2],
         textposition='outside',
         hovertemplate="<b>%{x}</b><br>MLR R²: %{y:.3f}<extra></extra>"
     ))
@@ -797,19 +831,20 @@ def create_ml_layout() -> html.Div:
         x=devices, y=rf_r2,
         name='Random Forest',
         marker_color=COLORS['buttercup'],
-        text=[f"{val:.3f}" for val in rf_r2],
+        text=[f"{val:.2f}" for val in rf_r2],
         textposition='outside',
         hovertemplate="<b>%{x}</b><br>Random Forest R²: %{y:.3f}<extra></extra>"
     ))
     
     fig_r2.update_layout(
-        title={'text': "Model Performance: R² Score (Higher is Better)", 'font': {'size': 20, 'family': 'Inter, sans-serif'}},
-        yaxis_title="R-squared (R²)",
+        yaxis_title="R-squared (R² Score)",
         barmode='group',
-        template='plotly_white',
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        margin=dict(t=80, b=40, l=40, r=40),
-        yaxis=dict(zeroline=True, zerolinewidth=2, zerolinecolor='black'),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#888'),
+        legend=dict(orientation="h", yanchor="top", y=-0.3, xanchor="center", x=0.5),
+        margin=dict(t=30, b=100, l=40, r=20),
+        yaxis=dict(zeroline=True, zerolinewidth=2, zerolinecolor='rgba(150,150,150,0.5)', gridcolor='rgba(150,150,150,0.1)'),
         hovermode="x unified"
     )
 
@@ -817,9 +852,9 @@ def create_ml_layout() -> html.Div:
     fig_mae = go.Figure()
     fig_mae.add_trace(go.Bar(
         x=devices, y=mlr_mae,
-        name='Multiple Linear Regression',
+        name='Linear Regression',
         marker_color=COLORS['crocus'],
-        text=[f"{val:.3f}" for val in mlr_mae],
+        text=[f"{val:.2f}" for val in mlr_mae],
         textposition='outside',
         hovertemplate="<b>%{x}</b><br>MLR MAE: %{y:.3f} METs<extra></extra>"
     ))
@@ -827,82 +862,149 @@ def create_ml_layout() -> html.Div:
         x=devices, y=rf_mae,
         name='Random Forest',
         marker_color=COLORS['buttercup'],
-        text=[f"{val:.3f}" for val in rf_mae],
+        text=[f"{val:.2f}" for val in rf_mae],
         textposition='outside',
         hovertemplate="<b>%{x}</b><br>Random Forest MAE: %{y:.3f} METs<extra></extra>"
     ))
     
     fig_mae.update_layout(
-        title={'text': "Prediction Error: MAE in METs (Lower is Better)", 'font': {'size': 20, 'family': 'Inter, sans-serif'}},
         yaxis_title="Mean Absolute Error (METs)",
         barmode='group',
-        template='plotly_white',
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        margin=dict(t=80, b=40, l=40, r=40),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#888'),
+        legend=dict(orientation="h", yanchor="top", y=-0.3, xanchor="center", x=0.5),
+        margin=dict(t=30, b=100, l=40, r=20),
+        yaxis=dict(gridcolor='rgba(150,150,150,0.1)'),
         hovermode="x unified"
     )
 
     return html.Div([
-        html.Br(),
-        dbc.Row([
-            dbc.Col([
-                html.H2("Machine Learning Evaluation", className="mb-2 text-primary fw-bold"),
-                html.P(
-                    "Random Forest successfully handles noisy, collinear wearable features, "
-                    "dropping Mean Absolute Error to ~2 METs. Notably, consumer devices "
-                    "(EmotiBit, Bangle.js) outperform the clinical ActiGraph baseline in this non-linear pipeline.",
-                    className="lead text-muted",
-                    style={'fontSize': '1.1rem'}
-                ),
-                html.Hr(className="my-4"),
+        # === Header Banner ===
+        html.Div([
+            html.Div([
+                html.H3("Machine Learning Evaluation", 
+                       style={'margin': 0, 'fontWeight': '600', 'color': COLORS['soot']}),
+                html.P("Predicting Energy Expenditure (METs) using ActiGraph vs. Consumer Wearables", 
+                      style={'margin': '5px 0 0 0', 'fontSize': '0.95rem', 'color': COLORS['soot']})
             ])
+        ], style={
+            'background': f"linear-gradient(135deg, {COLORS['buttercup']} 0%, {COLORS['lily']} 100%)",
+            'padding': '20px 25px',
+            'borderRadius': '12px',
+            'marginBottom': '25px',
+            'boxShadow': '0 2px 8px rgba(0,0,0,0.08)'
+        }),
+        
+        # Methodological Explanation
+        html.Div([
+            html.P(
+                "Random Forest algorithms successfully map non-linear biological movement artifacts, "
+                "reducing the Mean Absolute Error to ~2 METs across both clinical and consumer devices.",
+                className="text-muted",
+                style={'fontSize': '1.05rem', 'marginBottom': '25px'}
+            )
         ]),
         
-        dbc.Row([
-            dbc.Col(dcc.Graph(figure=fig_r2, config={'displayModeBar': False}), lg=6, md=12, className="mb-4"),
-            dbc.Col(dcc.Graph(figure=fig_mae, config={'displayModeBar': False}), lg=6, md=12, className="mb-4")
-        ]),
-        
-        # --- Interactive Scatter Plot Section ---
+        # === ROW 1: R-Squared and MAE Metrics ===
         dbc.Row([
             dbc.Col([
-                html.H4("True vs. Predicted Exercise Intensity (METs)", className="text-primary mt-4 mb-3 fw-bold")
-            ])
-        ]),
-        dbc.Row([
-            dbc.Col([
-                html.Label("Select Device:", className="fw-bold mb-1"),
-                dcc.Dropdown(
-                    id="ml-device-dd",
-                    options=[
-                        {"label": "ActiGraph", "value": "ActiGraph"},
-                        {"label": "EmotiBit", "value": "EmotiBit"},
-                        {"label": "Bangle.js", "value": "Bangle.js"}
-                    ],
-                    value="EmotiBit",
-                    clearable=False,
-                    className="mb-3"
-                )
-            ], md=4),
+                html.Div([
+                    html.Div([
+                        html.Span("Model Accuracy (R² Score)", className="text-muted", style={'fontSize': '0.85rem'})
+                    ], style={'padding': '12px 20px', 'borderBottom': '1px solid var(--border-color)'}),
+                    dcc.Loading(dcc.Graph(figure=fig_r2, config={'displayModeBar': False}, style={'height': '400px'}, responsive=True))
+                ], className="card", style={
+                    'borderRadius': '10px',
+                    'boxShadow': 'var(--card-shadow)',
+                    'overflow': 'hidden',
+                    'borderLeft': f'4px solid {COLORS["buttercup"]}'
+                })
+            ], xs=12, lg=6, className="mb-4"),
             
             dbc.Col([
-                html.Label("Select Model:", className="fw-bold mb-1"),
-                dcc.Dropdown(
-                    id="ml-model-dd",
-                    options=[
-                        {"label": "Multiple Linear Regression", "value": "Multiple Linear Regression"},
-                        {"label": "Random Forest", "value": "Random Forest"}
-                    ],
-                    value="Random Forest",
-                    clearable=False,
-                    className="mb-3"
-                )
-            ], md=4)
-        ], className="bg-light p-3 rounded shadow-sm mb-4"),
+                html.Div([
+                    html.Div([
+                        html.Span("Prediction Error (MAE in METs)", className="text-muted", style={'fontSize': '0.85rem'})
+                    ], style={'padding': '12px 20px', 'borderBottom': '1px solid var(--border-color)'}),
+                    dcc.Loading(dcc.Graph(figure=fig_mae, config={'displayModeBar': False}, style={'height': '400px'}, responsive=True))
+                ], className="card", style={
+                    'borderRadius': '10px',
+                    'boxShadow': 'var(--card-shadow)',
+                    'overflow': 'hidden',
+                    'borderLeft': f'4px solid {COLORS["crocus"]}'
+                })
+            ], xs=12, lg=6, className="mb-4")
+        ]),
+        
+        # === ROW 2: Interactive Scatter Plot Section ===
+        html.Div([
+            html.H5("True vs. Predicted Exercise Intensity (METs)", style={
+                'fontWeight': '600', 'marginBottom': '15px',
+                'paddingBottom': '10px', 'borderBottom': f'2px solid {COLORS["buttercup"]}'
+            }),
+        ], style={'marginTop': '20px'}),
         
         dbc.Row([
             dbc.Col([
-                dcc.Graph(id="ml-scatter-plot", config={"displayModeBar": False})
-            ])
+                html.Div([
+                    # Controls Head
+                    html.Div([
+                        html.Span("Interactive Model Prediction Filter", className="text-muted", style={'fontSize': '0.85rem'})
+                    ], style={'padding': '12px 20px', 'borderBottom': '1px solid var(--border-color)'}),
+                    # Dropdowns container
+                    html.Div([
+                        dbc.Row([
+                            dbc.Col([
+                                html.Label("Select Device:", className="fw-bold mb-1 text-muted", style={'fontSize': '0.85rem'}),
+                                dcc.Dropdown(
+                                    id="ml-device-dd",
+                                    options=[
+                                        {"label": "ActiGraph", "value": "ActiGraph"},
+                                        {"label": "EmotiBit", "value": "EmotiBit"},
+                                        {"label": "Bangle.js", "value": "Bangle.js"}
+                                    ],
+                                    value="EmotiBit",
+                                    clearable=False,
+                                    className="mb-1",
+                                    style={'color': '#212529'}
+                                )
+                            ], md=6, className="mb-3 mb-md-0"),
+                            
+                            dbc.Col([
+                                html.Label("Select Model:", className="fw-bold mb-1 text-muted", style={'fontSize': '0.85rem'}),
+                                dcc.Dropdown(
+                                    id="ml-model-dd",
+                                    options=[
+                                        {"label": "Multiple Linear Regression", "value": "Multiple Linear Regression"},
+                                        {"label": "Random Forest", "value": "Random Forest"}
+                                    ],
+                                    value="Random Forest",
+                                    clearable=False,
+                                    className="mb-1",
+                                    style={'color': '#212529'}
+                                )
+                            ], md=6)
+                        ])
+                    ], style={'padding': '20px'})
+                ], className="card", style={
+                    'borderRadius': '10px',
+                    'boxShadow': 'var(--card-shadow)',
+                    'overflow': 'visible', # Allow dropdowns to overflow standard blocks safely
+                    'borderLeft': f'4px solid {COLORS["soot"]}'
+                })
+            ], xs=12, lg=12, className="mb-4")
+        ]),
+        
+        dbc.Row([
+            dbc.Col([
+                html.Div([
+                    dcc.Loading(dcc.Graph(id="ml-scatter-plot", config={"displayModeBar": False}, style={'height': '550px'}))
+                ], className="card", style={
+                    'borderRadius': '10px',
+                    'boxShadow': 'var(--card-shadow)',
+                    'overflow': 'hidden'
+                })
+            ], xs=12, lg=12, className="mb-5")
         ])
     ])

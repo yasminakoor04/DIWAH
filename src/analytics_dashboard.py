@@ -635,40 +635,32 @@ def toggle_sidebar(n1, is_open):
     return is_open
 
 
-# --- Simulated Data for ML Tab ---
-np.random.seed(42)
-n_samples = 300
-true_mets = np.random.uniform(1.0, 15.0, n_samples)
-ml_data = []
-ml_devices = ["ActiGraph", "EmotiBit", "Bangle.js"]
+# --- Live Data Hook for ML Tab ---
+import os
+from pathlib import Path
+_csv_path = Path(__file__).resolve().parents[1] / "scripts" / "Acc_pipe" / "data" / "processed" / "ml_predictions.csv"
 
-for dev in ml_devices:
-    rf_pred = np.clip(true_mets + np.random.normal(0, 1.0, n_samples), 0.5, 18.0)
-    for t_val, p_val in zip(true_mets, rf_pred):
-        ml_data.append({"Device": dev, "Model": "Random Forest", "True_METs": t_val, "Pred_METs": p_val})
-        
-    if dev == "ActiGraph":
-        mlr_pred = true_mets + np.random.normal(0, 3.5, n_samples)
-    else:
-        mlr_pred = true_mets + np.random.uniform(-15, 30, n_samples)
-    for t_val, p_val in zip(true_mets, mlr_pred):
-        ml_data.append({"Device": dev, "Model": "Multiple Linear Regression", "True_METs": t_val, "Pred_METs": p_val})
-
-ml_df = pd.DataFrame(ml_data)
+if _csv_path.exists():
+    ml_df = pd.read_csv(_csv_path)
+else:
+    # Graceful fallback: empty DataFrame matching expected schema
+    ml_df = pd.DataFrame(columns=["Device", "Model", "True_METs", "Pred_METs"])
 
 @app.callback(
     Output("ml-scatter-plot", "figure"),
     [Input("ml-device-dd", "value"),
-     Input("ml-model-dd", "value")]
+     Input("ml-model-dd", "value"),
+     Input("theme-toggle", "value")]
 )
-def update_ml_scatter(selected_device, selected_model):
+def update_ml_scatter(selected_device, selected_model, is_dark):
+    template = "plotly_dark" if is_dark else "plotly_white"
     filtered_df = ml_df[(ml_df["Device"] == selected_device) & (ml_df["Model"] == selected_model)]
     fig = go.Figure()
     
     fig.add_trace(go.Scatter(
         x=filtered_df["True_METs"], y=filtered_df["Pred_METs"],
         mode="markers", name="Predictions",
-        marker=dict(color=COLORS['crocus'], size=8, opacity=0.6, line=dict(width=1, color="white")),
+        marker=dict(color=COLORS['crocus'], size=8, opacity=0.6, line=dict(width=1, color="rgba(255,255,255,0.2)")),
         hovertemplate="<b>True Intensity:</b> %{x:.2f} METs<br><b>Predicted:</b> %{y:.2f} METs<extra></extra>"
     ))
     
@@ -678,13 +670,17 @@ def update_ml_scatter(selected_device, selected_model):
     ))
     
     y_range = [-20, 45] if (selected_model == "Multiple Linear Regression" and selected_device != "ActiGraph") else [0, 20]
+    grid_color = 'rgba(255,255,255,0.1)' if is_dark else 'rgba(0,0,0,0.1)'
+    axis_color = 'rgba(255,255,255,0.5)' if is_dark else 'black'
     
     fig.update_layout(
         title={"text": f"Predictive Accuracy: {selected_model} on {selected_device}", "font": {"size": 22}},
         xaxis_title="True Intensity (METs)", yaxis_title="Predicted Intensity (METs)",
-        xaxis=dict(range=[0, 15], zeroline=False), yaxis=dict(range=y_range, zeroline=True, zerolinewidth=1, zerolinecolor="black"),
-        template="plotly_white", margin=dict(t=80, b=50, l=50, r=30),
-        legend=dict(x=0.01, y=0.98, bgcolor="rgba(255,255,255,0.8)"), hovermode="closest", height=600
+        xaxis=dict(range=[0, 15], zeroline=False, gridcolor=grid_color), 
+        yaxis=dict(range=y_range, zeroline=True, zerolinewidth=1, zerolinecolor=axis_color, gridcolor=grid_color),
+        template=template, margin=dict(t=80, b=50, l=50, r=30),
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        legend=dict(x=0.01, y=0.98, bgcolor="rgba(0,0,0,0)"), hovermode="closest", height=550
     )
     return fig
 

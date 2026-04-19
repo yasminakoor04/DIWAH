@@ -53,10 +53,10 @@ log = logging.getLogger(__name__)
 # Paths
 # ---------------------------------------------------------------------------
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
-_DATA_DIR = _PROJECT_ROOT / "data"
+_ACC_PIPE_PROCESSED = Path(__file__).resolve().parent / "Acc_pipe" / "data" / "processed"
 
-DEFAULT_INPUT_CSV = _DATA_DIR / "master_epochs.csv"
-DEFAULT_OUTPUT_CSV = _DATA_DIR / "flirt_feature_matrix_ready.csv"
+DEFAULT_INPUT_CSV = _ACC_PIPE_PROCESSED / "master_epochs.csv"
+DEFAULT_OUTPUT_CSV = _ACC_PIPE_PROCESSED / "flirt_feature_matrix_ready.csv"
 
 # ---------------------------------------------------------------------------
 # FLIRT epoch configuration
@@ -244,7 +244,7 @@ def extract_acc_features(df: pd.DataFrame, device: str, col_map: dict) -> Option
             window_length=WINDOW_LENGTH_S,
             window_step_size=WINDOW_STEP_S,
             data_frequency=DATA_FREQUENCY_HZ,
-            num_cores=0,
+            num_cores=1,
         )
 
         if feats is None or feats.empty:
@@ -356,7 +356,7 @@ def extract_hrv_features(df: pd.DataFrame) -> Optional[pd.DataFrame]:
             domains=["td", "stat"],  # skip "fd" — needs high-res IBI, not BPM means
             threshold=0.2,
             clean_data=True,
-            num_cores=0,
+            num_cores=1,
         )
 
         if feats is None or feats.empty:

@@ -25,11 +25,13 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+import json
 
 # Paths
 _SCRIPT_DIR = Path(__file__).resolve().parent
 _PROJECT_ROOT = _SCRIPT_DIR.parent
-DEFAULT_FEATURE_MATRIX = _PROJECT_ROOT / "data" / "flirt_feature_matrix_ready.csv"
+DEFAULT_FEATURE_MATRIX = _SCRIPT_DIR / "Acc_pipe" / "data" / "processed" / "flirt_feature_matrix_ready.csv"
+OUTPUT_DIR = _SCRIPT_DIR / "Acc_pipe" / "data" / "processed"
 
 def load_and_prep_data(csv_path: Path) -> pd.DataFrame:
     """Loads the FLIRT feature matrix and performs basic checks."""
@@ -86,7 +88,13 @@ def train_and_evaluate(X_train, X_test, y_train, y_test):
         "R2": r2_score(y_test, rf_preds)
     }
     
-    return metrics
+    # Return metrics and predictions payload for the Dashboard
+    preds_payload = {
+        "MLR": mlr_preds.tolist(),
+        "RF": rf_preds.tolist()
+    }
+    
+    return metrics, preds_payload
 
 def print_beautiful_summary(results: dict):
     """
@@ -129,6 +137,7 @@ def main():
     
     devices = ["actigraph", "emotibit", "bangle"]
     results = {}
+    all_predictions = []
     
     for device in devices:
         print(f"\nProcessing {device.capitalize()}...")
@@ -164,12 +173,33 @@ def main():
         
         # 5. Train & Evaluate
         print("  Training MLR and Random Forest models...")
-        metrics = train_and_evaluate(X_train_scaled, X_test_scaled, y_train, y_test)
+        metrics, preds_payload = train_and_evaluate(X_train_scaled, X_test_scaled, y_train, y_test)
         
         results[device] = metrics
         
-    # 6. Output Table
+        # Accumulate predictions for Dashboard Interactive Scatter Plot
+        for model_name, preds_arr in preds_payload.items():
+            model_label = "Multiple Linear Regression" if model_name == "MLR" else "Random Forest"
+            dev_label = "Bangle.js" if device == "bangle" else ("ActiGraph" if device == "actigraph" else "EmotiBit")
+            for t_val, p_val in zip(y_test, preds_arr):
+                all_predictions.append({
+                    "Device": dev_label,
+                    "Model": model_label,
+                    "True_METs": t_val,
+                    "Pred_METs": p_val
+                })
+        
+    # 6. Output Table and Export
     print_beautiful_summary(results)
+    
+    # Save payloads for the Dashboard UI
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    with open(OUTPUT_DIR / "ml_metrics.json", "w") as f:
+        json.dump(results, f, indent=4)
+        
+    pd.DataFrame(all_predictions).to_csv(OUTPUT_DIR / "ml_predictions.csv", index=False)
+    print(f"\n[SUCCESS] Exported real cross-validation metrics to {OUTPUT_DIR}\\ml_metrics.json")
+    print(f"[SUCCESS] Exported real prediction matrix. to {OUTPUT_DIR}\\ml_predictions.csv for Dashboard Scatter Plot!")
 
 if __name__ == "__main__":
     main()
