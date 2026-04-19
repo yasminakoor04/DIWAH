@@ -757,9 +757,9 @@ def create_ml_layout() -> html.Div:
     Renders the Machine Learning Dashboard evaluating Random Forest vs MLR.
     """
     metrics_data = {
-        'ActiGraph (Clinical)': {'MLR_MAE': 4.308, 'MLR_R2': -1.228, 'RF_MAE': 2.066, 'RF_R2': 0.518},
-        'EmotiBit (Consumer)': {'MLR_MAE': 7.288, 'MLR_R2': -7.325, 'RF_MAE': 2.033, 'RF_R2': 0.627},
-        'Bangle.js (Consumer)': {'MLR_MAE': 23.183, 'MLR_R2': -25.000, 'RF_MAE': 1.995, 'RF_R2': 0.561}
+        'ActiGraph (Clinical)': {'MLR_MAE': 4.308, 'MLR_R2': -1.228, 'MLR_RMSE': 5.749, 'RF_MAE': 2.066, 'RF_R2': 0.518, 'RF_RMSE': 2.673},
+        'EmotiBit (Consumer)': {'MLR_MAE': 7.288, 'MLR_R2': -7.325, 'MLR_RMSE': 11.113, 'RF_MAE': 2.033, 'RF_R2': 0.627, 'RF_RMSE': 2.352},
+        'Bangle.js (Consumer)': {'MLR_MAE': 23.183, 'MLR_R2': -25.000, 'MLR_RMSE': 57.201, 'RF_MAE': 1.995, 'RF_R2': 0.561, 'RF_RMSE': 2.513}
     }
     
     import json
@@ -775,22 +775,28 @@ def create_ml_layout() -> html.Div:
                 metrics_data['ActiGraph (Clinical)'] = {
                     'MLR_MAE': real_res['actigraph']['MLR']['MAE'],
                     'MLR_R2': real_res['actigraph']['MLR']['R2'],
+                    'MLR_RMSE': real_res['actigraph']['MLR']['RMSE'],
                     'RF_MAE': real_res['actigraph']['RF']['MAE'],
-                    'RF_R2': real_res['actigraph']['RF']['R2']
+                    'RF_R2': real_res['actigraph']['RF']['R2'],
+                    'RF_RMSE': real_res['actigraph']['RF']['RMSE']
                 }
             if 'emotibit' in real_res:
                 metrics_data['EmotiBit (Consumer)'] = {
                     'MLR_MAE': real_res['emotibit']['MLR']['MAE'],
                     'MLR_R2': real_res['emotibit']['MLR']['R2'],
+                    'MLR_RMSE': real_res['emotibit']['MLR']['RMSE'],
                     'RF_MAE': real_res['emotibit']['RF']['MAE'],
-                    'RF_R2': real_res['emotibit']['RF']['R2']
+                    'RF_R2': real_res['emotibit']['RF']['R2'],
+                    'RF_RMSE': real_res['emotibit']['RF']['RMSE']
                 }
             if 'bangle' in real_res:
                 metrics_data['Bangle.js (Consumer)'] = {
                     'MLR_MAE': real_res['bangle']['MLR']['MAE'],
                     'MLR_R2': real_res['bangle']['MLR']['R2'],
+                    'MLR_RMSE': real_res['bangle']['MLR']['RMSE'],
                     'RF_MAE': real_res['bangle']['RF']['MAE'],
-                    'RF_R2': real_res['bangle']['RF']['R2']
+                    'RF_R2': real_res['bangle']['RF']['R2'],
+                    'RF_RMSE': real_res['bangle']['RF']['RMSE']
                 }
         except Exception as e:
             print(f"Error loading real ML metrics: {e}")
@@ -798,46 +804,13 @@ def create_ml_layout() -> html.Div:
     devices = list(metrics_data.keys())
     
     # Extract data for plotting
-    mlr_r2 = [metrics_data[d]['MLR_R2'] for d in devices]
-    rf_r2 = [metrics_data[d]['RF_R2'] for d in devices]
-    
     mlr_mae = [metrics_data[d]['MLR_MAE'] for d in devices]
     rf_mae = [metrics_data[d]['RF_MAE'] for d in devices]
-
-    # --- CHART 1: R-Squared (Explained Variance) ---
-    fig_r2 = go.Figure()
-    fig_r2.add_trace(go.Bar(
-        x=devices, y=mlr_r2,
-        name='Linear Regression',
-        marker_color=COLORS['crocus'],
-        text=[f"{val:.2f}" for val in mlr_r2],
-        textposition='outside',
-        cliponaxis=False,
-        hovertemplate="<b>%{x}</b><br>MLR R²: %{y:.3f}<extra></extra>"
-    ))
-    fig_r2.add_trace(go.Bar(
-        x=devices, y=rf_r2,
-        name='Random Forest',
-        marker_color=COLORS['buttercup'],
-        text=[f"{val:.2f}" for val in rf_r2],
-        textposition='outside',
-        cliponaxis=False,
-        hovertemplate="<b>%{x}</b><br>Random Forest R²: %{y:.3f}<extra></extra>"
-    ))
     
-    fig_r2.update_layout(
-        yaxis_title="R-squared (R² Score)",
-        barmode='group',
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='#888'),
-        legend=dict(orientation="h", yanchor="top", y=-0.3, xanchor="center", x=0.5),
-        margin=dict(t=45, b=100, l=40, r=20),
-        yaxis=dict(zeroline=True, zerolinewidth=2, zerolinecolor='rgba(150,150,150,0.5)', gridcolor='rgba(150,150,150,0.1)'),
-        hovermode="x unified"
-    )
+    mlr_rmse = [metrics_data[d]['MLR_RMSE'] for d in devices]
+    rf_rmse = [metrics_data[d]['RF_RMSE'] for d in devices]
 
-    # --- CHART 2: Mean Absolute Error (MAE) ---
+    # --- CHART 1: Mean Absolute Error (MAE) ---
     fig_mae = go.Figure()
     fig_mae.add_trace(go.Bar(
         x=devices, y=mlr_mae,
@@ -860,6 +833,38 @@ def create_ml_layout() -> html.Div:
     
     fig_mae.update_layout(
         yaxis_title="Mean Absolute Error (METs)",
+        barmode='group',
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#888'),
+        legend=dict(orientation="h", yanchor="top", y=-0.3, xanchor="center", x=0.5),
+        margin=dict(t=45, b=100, l=40, r=20),
+        yaxis=dict(gridcolor='rgba(150,150,150,0.1)'),
+        hovermode="x unified"
+    )
+
+    # --- CHART 2: Root Mean Squared Error (RMSE) ---
+    fig_rmse = go.Figure()
+    fig_rmse.add_trace(go.Bar(
+        x=devices, y=mlr_rmse,
+        name='Linear Regression',
+        marker_color=COLORS['crocus'],
+        text=[f"{val:.2f}" for val in mlr_rmse],
+        textposition='outside',
+        cliponaxis=False,
+        hovertemplate="<b>%{x}</b><br>MLR RMSE: %{y:.3f} METs<extra></extra>"
+    ))
+    fig_rmse.add_trace(go.Bar(
+        x=devices, y=rf_rmse,
+        name='Random Forest',
+        marker_color=COLORS['buttercup'],
+        text=[f"{val:.2f}" for val in rf_rmse],
+        textposition='outside',
+        cliponaxis=False,
+        hovertemplate="<b>%{x}</b><br>Random Forest RMSE: %{y:.3f} METs<extra></extra>"
+    ))
+    fig_rmse.update_layout(
+        yaxis_title="Root Mean Squared Error (METs)",
         barmode='group',
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
@@ -897,14 +902,14 @@ def create_ml_layout() -> html.Div:
             )
         ]),
         
-        # === ROW 1: R-Squared and MAE Metrics ===
+        # === ROW 1: MAE and RMSE Metrics Side by Side ===
         dbc.Row([
             dbc.Col([
                 html.Div([
                     html.Div([
-                        html.Span("Model Accuracy (R² Score)", className="text-muted", style={'fontSize': '0.85rem'})
+                        html.Span("Mean Absolute Error (MAE in METs)", className="text-muted", style={'fontSize': '0.85rem'})
                     ], style={'padding': '12px 20px', 'borderBottom': '1px solid var(--border-color)'}),
-                    dcc.Loading(dcc.Graph(figure=fig_r2, config={'displayModeBar': False}, style={'height': '400px'}, responsive=True))
+                    dcc.Loading(dcc.Graph(figure=fig_mae, config={'displayModeBar': False}, style={'height': '400px'}, responsive=True))
                 ], className="card", style={
                     'borderRadius': '10px',
                     'boxShadow': 'var(--card-shadow)',
@@ -916,9 +921,9 @@ def create_ml_layout() -> html.Div:
             dbc.Col([
                 html.Div([
                     html.Div([
-                        html.Span("Prediction Error (MAE in METs)", className="text-muted", style={'fontSize': '0.85rem'})
+                        html.Span("Root Mean Squared Error (RMSE in METs)", className="text-muted", style={'fontSize': '0.85rem'})
                     ], style={'padding': '12px 20px', 'borderBottom': '1px solid var(--border-color)'}),
-                    dcc.Loading(dcc.Graph(figure=fig_mae, config={'displayModeBar': False}, style={'height': '400px'}, responsive=True))
+                    dcc.Loading(dcc.Graph(figure=fig_rmse, config={'displayModeBar': False}, style={'height': '400px'}, responsive=True))
                 ], className="card", style={
                     'borderRadius': '10px',
                     'boxShadow': 'var(--card-shadow)',
@@ -928,7 +933,7 @@ def create_ml_layout() -> html.Div:
             ], xs=12, lg=6, className="mb-4")
         ]),
         
-        # === ROW 2: Interactive Scatter Plot Section ===
+        # === ROW 3: Interactive Scatter Plot Section ===
         html.Div([
             html.H5("True vs. Predicted Exercise Intensity (METs)", style={
                 'fontWeight': '600', 'marginBottom': '15px',
