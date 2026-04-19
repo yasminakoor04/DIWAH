@@ -397,7 +397,7 @@ def make_subgroup_boxplot(df: pd.DataFrame, group_col: str, metric: str = 'Bangl
         template=template,
         yaxis=dict(
             title="Pearson Correlation (r)",
-            range=[0, 1.05],
+            autorange=True,
             gridcolor='#f0f0f0' if 'white' in template else '#333',
             tickfont=dict(size=11)
         ),
