@@ -684,25 +684,29 @@ def update_ml_scatter(selected_device, selected_model, is_dark):
         legend=dict(x=0.01, y=0.98, bgcolor="rgba(0,0,0,0)"), hovermode="closest", height=450
     )
 
-    # --- 2. Sequential Line Chart ---
+    # --- 2. Sequential Line Chart (Sorted by True_METs for clarity) ---
     line_fig = go.Figure()
+    
+    # Sort by actual ground truth so the plot makes logical sense from Rest to Max Activity
+    sorted_df = filtered_df.sort_values(by="True_METs").reset_index(drop=True)
+    
     line_fig.add_trace(go.Scatter(
-        y=filtered_df["True_METs"],
+        y=sorted_df["True_METs"],
         mode="lines+markers", name="Actual",
         line=dict(color=COLORS['buttercup'], width=3), 
         marker=dict(size=6),
         hovertemplate="<b>Actual:</b> %{y:.2f} METs<extra></extra>"
     ))
     line_fig.add_trace(go.Scatter(
-        y=filtered_df["Pred_METs"],
+        y=sorted_df["Pred_METs"],
         mode="lines+markers", name="Predicted",
         line=dict(color=COLORS['crocus'], width=3), 
         marker=dict(size=6),
         hovertemplate="<b>Predicted:</b> %{y:.2f} METs<extra></extra>"
     ))
     line_fig.update_layout(
-        title={"text": f"Test Sequence Tracking", "font": {"size": 20}},
-        xaxis_title="Sequenced Evaluation Windows", yaxis_title="Energy (METs)",
+        title={"text": f"Tracking Across Activity Spectrum", "font": {"size": 20}},
+        xaxis_title="Activity Spectrum (Ordered from Rest to Peak Exercise)", yaxis_title="Energy (METs)",
         xaxis=dict(zeroline=False, gridcolor=grid_color), 
         yaxis=dict(range=y_range, zeroline=True, zerolinewidth=1, zerolinecolor=axis_color, gridcolor=grid_color),
         template=template, margin=dict(t=60, b=50, l=50, r=30),
