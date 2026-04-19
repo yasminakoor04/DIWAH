@@ -647,16 +647,18 @@ def create_correlation_layout(corr_df: pd.DataFrame, subjects: List[str], templa
 
 def create_about_layout() -> html.Div:
     """
-    Create the 'About' tab layout with project information.
+    Create the 'About' tab layout driven by the README thesis context.
     """
+    import dash
     return html.Div([
         # Header Section
-        # Header Section
         html.Div([
-            html.H3("Design of an Intelligent Wearable for Activity and Health – The DIWAH Study", 
+            html.H3("Predicting Exercise Intensity from Smartwatch Data: Device Capabilities and Limitations", 
                    style={'margin': 0, 'fontWeight': '600', 'color': COLORS['soot']}),
-            html.P("Project Background, Methodology, and Goals.", 
-                  style={'margin': '5px 0 0 0', 'fontSize': '0.95rem', 'color': COLORS['soot']})
+            html.P("A Bachelor's Thesis Project by Hanna Szalai & Yasmin Akoor.", 
+                  style={'margin': '5px 0 0 0', 'fontSize': '1.05rem', 'color': COLORS['soot']}),
+            html.P("In collaboration with the Linnaeus University DIWAH Study.", 
+                  style={'margin': '5px 0 0 0', 'fontSize': '0.95rem', 'color': '#6c757d', 'fontStyle': 'italic'})
         ], style={
             'background': f"linear-gradient(135deg, {COLORS['buttercup']} 0%, {COLORS['lily']} 100%)",
             'padding': '20px 25px',
@@ -665,107 +667,87 @@ def create_about_layout() -> html.Div:
             'boxShadow': '0 2px 8px rgba(0,0,0,0.08)'
         }),
 
-        # Goal & Vision Section
-        dbc.Card([
-            dbc.CardHeader(html.H4("Why Are We Doing This?", className="m-0")),
-            dbc.CardBody([
-                html.P([
-                    "The overarching goal of the DIWAH-study is to develop algorithms for wearables that can be used in healthcare to ",
-                    html.Strong("promote health, prevent disease, and aid in treatment"),
-                    ". Current healthcare faces a demographic shift with an aging population, making it crucial to have proactive strategies."
-                ], className="card-text"),
-                html.P([
-                    "We are developing AI-based algorithms to assess ",
-                    html.Strong("Physical Activity (PA), Energy Expenditure (EE), and Blood Pressure (BP)"),
-                    " at an individual level. The ultimate vision is a system that provides tailored activity recommendations in real-time to optimize an individual's health without human intervention."
-                ], className="card-text"),
-            ])
-        ], className="mb-4 shadow-sm dashboard-card"),
-
-        # Background & Challenges Section (Restored)
+        # Overview & Challenge
         dbc.Row([
             dbc.Col([
-                html.H4("The Challenge", className="mt-3 text-primary"),
-                html.P([
-                    "Globally, life expectancy is increasing. One major societal challenge is to develop strategies for maintaining good health and quality of life in older age groups. "
-                    "Regular Physical Activity (PA) is key to preventing diseases like cardiovascular issues and diabetes."
-                ]),
-                dbc.Alert([
-                    html.H5("Commercial Wearables Issue", className="alert-heading"),
-                    html.P("Current commercial wearables often have large measurement errors (25-90% off for Energy Expenditure) and questionable data security. They rely on algorithms trained on young, healthy populations, making them inaccurate for older adults."),
-                    html.Hr(),
-                    html.P("Our approach uses open-source, transparent, and clinically validated algorithms.", className="mb-0")
-                ], color="warning", className="mt-3")
-            ], xs=12, className="mb-4"),
-        ]),
-
-        dbc.Row([
-            # Left Column: Devices & Data
-            dbc.Col([
                 dbc.Card([
-                    dbc.CardHeader(html.H5("The Devices & Data", className="m-0")),
-                    dbc.CardBody([
-                        html.P("We are comparing open-source wearables against commercial standards and gold-standard methods:", className="card-text"),
-                        html.Ul([
-                            html.Li([html.Strong("Bangle.js 2 & Pinetime:"), " Open-source smartwatches allowing full access to raw sensor data."]),
-                            html.Li([html.Strong("Emotibit:"), " A research-grade biosensor for physiological data."]),
-                            html.Li([html.Strong("Fitbit Sense:"), " A commercial reference device."]),
-                        ]),
-                    ])
-                ], className="h-100 shadow-sm dashboard-card")
-            ], md=6, className="mb-4"),
-
-            # Right Column: Why Rest vs Activity
-            dbc.Col([
-                dbc.Card([
-                    dbc.CardHeader(html.H5("Why Rest vs. Activity?", className="m-0")),
+                    dbc.CardHeader(html.H5("The Research Context", className="m-0")),
                     dbc.CardBody([
                         html.P([
-                            "A key challenge is distinguishing physiological responses during physical activity versus rest. ",
-                            "By accurately classifying these states, we can ensure that health recommendations are context-aware and precise."
+                            "Wearable sensors and machine learning are increasingly used to predict exercise energy expenditure to promote health, especially in the elderly. ",
+                            "However, popular commercial wearables (like Fitbit or Apple Watch) are expensive, 'black box' systems that restrict access to raw sensor data."
                         ], className="card-text"),
-                        html.Ul([
-                            html.Li([html.Strong("Rest (20 min):"), " Establishing baseline metrics and measuring Blood Pressure."]),
-                            html.Li([html.Strong("Activity:"), " Performing specific tasks to measure Energy Expenditure and movement intensity."]),
-                        ]),
+                        html.P(
+                            "This thesis investigates whether significantly cheaper, open-source consumer wearables can reliably predict exercise intensity using raw heart rate and accelerometer data.",
+                            className="card-text fw-bold text-primary"
+                        ),
+                        html.P(
+                            "By comparing models trained on open-source devices (EmotiBit, Bangle.js) against a research-grade clinical baseline (ActiGraph), we evaluate their predictive accuracy against a medical-grade Vyntus calorimetry systems (a breathing mask that tracks exact oxygen consumption).",
+                            className="card-text text-muted"
+                        )
                     ])
                 ], className="h-100 shadow-sm dashboard-card")
-            ], md=6, className="mb-4"),
+            ], md=12, lg=7, className="mb-4"),
+
+            # Research Questions
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardHeader(html.H5("Research Questions", className="m-0")),
+                    dbc.CardBody([
+                        html.P("This project aims to bridge the knowledge gap through two distinct research phases:", className="card-text"),
+                        html.Ul([
+                            html.Li([html.Strong("RQ1 (Design Science):"), " How can heterogeneous data streams from three different wearable devices with varying sampling rates, missing data, and clock drift be reliably synchronized and mathematically aligned for comparative analysis?"]),
+                            html.Br(),
+                            html.Li([html.Strong("RQ2 (Controlled Experiment):"), " Given properly synchronized heart rate and accelerometer data across heterogeneous wearables, is it feasible to predict exercise intensity (METs), and how does prediction performance vary by device architecture?"])
+                        ]),
+                    ])
+                ], className="h-100 shadow-sm dashboard-card", style={'borderLeft': f'4px solid {COLORS["crocus"]}'})
+            ], md=12, lg=5, className="mb-4"),
         ]),
 
-        # Methods & Phases (Restored Accordion)
-        html.H4("Project Methodology & Phases", className="mt-4 text-primary"),
-        dbc.Accordion([
-            dbc.AccordionItem([
-                html.P("Goal: Identify and test different wearables (Bangle.js 2, Pinetime, Emotibit, Fitbit Sense) to ensure raw data access."),
-            ], title="Phase 1: Mechanical Signal Testing"),
-            dbc.AccordionItem([
-                html.P("Goal: Develop and test AI-based algorithms in a controlled laboratory environment with ~30 participants."),
-                html.Ul([
-                    html.Li("Bioimpedance measurements (Body Composition)"),
-                    html.Li("Health-related physical fitness tests"),
-                    html.Li("Blood pressure measurement after rest")
-                ])
-            ], title="Phase 2: Laboratory Testing"),
-            dbc.AccordionItem([
-                html.P("Goal: Test the prototype during free living with ~50 participants."),
-                html.P("Validation: Using Doubly Labeled Water (DLW) as the gold standard for Energy Expenditure errors within ±2%."),
-            ], title="Phase 3: Naturalistic Validation"),
-        ], start_collapsed=True, className="mb-5"),
-
-        # Project Team & Links
-        dbc.Card([
-            dbc.CardBody([
-                html.H5("Who Are We?", className="card-title"),
-                html.P([
-                    "This is a collaborative seed project involving researchers from ",
-                    html.A("LNU Centre for Data Intensive Sciences and Applications (DISA)", href="https://lnu.se/en/research/research-groups/linnaeus-university-centre-for-data-intensive-sciences-and-applications/seed-projects/seed-project-development-of-an-intelligent-wearable-the-diwah-study/", target="_blank"),
-                    ", the eHealth Institute, and the Knowledge Environment Sustainable Health."
-                ], className="card-text"),
-                html.P("Our team combines expertise in Physical Activity research, AI modelling, IoT development, and Biochemistry to solve complex health challenges.", className="card-text"),
-            ])
-        ], className="mb-4 shadow-sm dashboard-card"),
+        # Hardware & Alignment Visuals
+        html.H4("Methodology & Visual Alignment", className="mt-3 mb-3 text-primary", style={'borderBottom': f'2px solid {COLORS["buttercup"]}', 'paddingBottom': '10px'}),
         
+        dbc.Row([
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardImg(src=dash.get_asset_url('pictures/image.png'), top=True, style={'maxHeight': '300px', 'objectFit': 'contain', 'padding': '10px'}),
+                    dbc.CardBody([
+                        html.H5("The Hardware Suite", className="card-title"),
+                        html.P("All the wearables and clinical devices worn by a subject during data collection. The data pipeline extracts hardware-specific features to assess their absolute predictive caps.", className="card-text text-muted")
+                    ])
+                ], className="h-100 shadow-sm dashboard-card")
+            ], md=12, lg=5, className="mb-4"),
+
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardImg(src=dash.get_asset_url('pictures/alignment_shiny_app.png'), top=True, style={'maxHeight': '300px', 'objectFit': 'cover', 'objectPosition': 'top'}),
+                    dbc.CardBody([
+                        html.H5("Signal Synchronization", className="card-title"),
+                        html.P([
+                            "We utilized a custom ", 
+                            html.Strong("Shiny App"), 
+                            " to manually cut, align, and synchronize the raw data. The synchronized epochs created from this tool form the core dataset we ingest to calculate highly reliable cross-correlation markers (r > 0.90)."
+                        ], className="card-text text-muted")
+                    ])
+                ], className="h-100 shadow-sm dashboard-card")
+            ], md=12, lg=7, className="mb-4"),
+        ]),
+
+        # Steps/Milestones
+        dbc.Card([
+            dbc.CardHeader(html.H5("Steps, Milestones, and Actions", className="m-0")),
+            dbc.CardBody([
+                html.Ul([
+                    html.Li([html.Strong("Data Integration Tools: "), "Develop parsing and mathematical alignment tools to synchronize the raw, un-synced data from the ActiGraph, EmotiBit, and Bangle.js."]),
+                    html.Li([html.Strong("Database Setup: "), "Deploy an InfluxDB architecture specifically optimized for high-frequency time-series sensor storage."]),
+                    html.Li([html.Strong("Dashboard Development: "), "Build a visual dashboard to manually validate the data alignment and inspect the heart rate and movement data prior to machine learning."]),
+                    html.Li([html.Strong("Feature Extraction: "), "Use the open-source FLIRT Python package to extract standardized physiological features from 5-second data epochs."]),
+                    html.Li([html.Strong("Model Training & Evaluation: "), "Train simple regression and basic ML models (e.g., Random Forest) on the extracted features, and compare their predicted MET values against the Vyntus golden standard."])
+                ], className="mt-2 mb-0", style={'lineHeight': '1.8'})
+            ])
+        ], className="mb-5 shadow-sm dashboard-card", style={'borderLeft': f'4px solid {COLORS["ivy"]}'})
+
     ], className="p-4")
 
 import plotly.graph_objects as go
