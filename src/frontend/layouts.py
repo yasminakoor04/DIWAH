@@ -998,13 +998,15 @@ def create_ml_layout() -> html.Div:
         
         dbc.Row([
             dbc.Col([
-                html.Div([
-                    dcc.Loading(dcc.Graph(id="ml-scatter-plot", config={"displayModeBar": False}, style={'height': '550px'}))
-                ], className="card", style={
-                    'borderRadius': '10px',
-                    'boxShadow': 'var(--card-shadow)',
-                    'overflow': 'hidden'
-                })
-            ], xs=12, lg=12, className="mb-5")
-        ])
+                dbc.Card(dbc.CardBody(
+                    dcc.Loading(dcc.Graph(id="ml-scatter-plot", config={"displayModeBar": False}, style={'height': '450px'}))
+                ), className="border-0 shadow-sm mb-4 bg-transparent")
+            ], xs=12, lg=12),
+            
+            dbc.Col([
+                dbc.Card(dbc.CardBody(
+                    dcc.Loading(dcc.Graph(id="ml-line-plot", config={"displayModeBar": False}, style={'height': '450px'}))
+                ), className="border-0 shadow-sm mb-4 bg-transparent")
+            ], xs=12, lg=12)
+        ], className="mb-5")
     ])

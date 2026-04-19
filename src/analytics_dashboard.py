@@ -647,7 +647,8 @@ else:
     ml_df = pd.DataFrame(columns=["Device", "Model", "True_METs", "Pred_METs"])
 
 @app.callback(
-    Output("ml-scatter-plot", "figure"),
+    [Output("ml-scatter-plot", "figure"),
+     Output("ml-line-plot", "figure")],
     [Input("ml-device-dd", "value"),
      Input("ml-model-dd", "value"),
      Input("theme-toggle", "value")]
@@ -655,34 +656,62 @@ else:
 def update_ml_scatter(selected_device, selected_model, is_dark):
     template = "plotly_dark" if is_dark else "plotly_white"
     filtered_df = ml_df[(ml_df["Device"] == selected_device) & (ml_df["Model"] == selected_model)]
-    fig = go.Figure()
     
-    fig.add_trace(go.Scatter(
+    # Common visuals
+    grid_color = 'rgba(255,255,255,0.1)' if is_dark else 'rgba(0,0,0,0.1)'
+    axis_color = 'rgba(255,255,255,0.5)' if is_dark else 'black'
+    y_range = [-10, 45] if (selected_model == "Multiple Linear Regression" and selected_device != "ActiGraph") else [0, 20]
+
+    # --- 1. Scatter Plot (y=x) ---
+    scatter_fig = go.Figure()
+    scatter_fig.add_trace(go.Scatter(
         x=filtered_df["True_METs"], y=filtered_df["Pred_METs"],
         mode="markers", name="Predictions",
         marker=dict(color=COLORS['crocus'], size=8, opacity=0.6, line=dict(width=1, color="rgba(255,255,255,0.2)")),
-        hovertemplate="<b>True Intensity:</b> %{x:.2f} METs<br><b>Predicted:</b> %{y:.2f} METs<extra></extra>"
+        hovertemplate="<b>True:</b> %{x:.2f} METs<br><b>Predicted:</b> %{y:.2f} METs<extra></extra>"
     ))
-    
-    fig.add_trace(go.Scatter(
+    scatter_fig.add_trace(go.Scatter(
         x=[0, 15], y=[0, 15], mode="lines", name="Perfect Prediction (y=x)",
         line=dict(color=COLORS['buttercup'], width=3, dash="dash"), hoverinfo="skip"
     ))
-    
-    y_range = [-20, 45] if (selected_model == "Multiple Linear Regression" and selected_device != "ActiGraph") else [0, 20]
-    grid_color = 'rgba(255,255,255,0.1)' if is_dark else 'rgba(0,0,0,0.1)'
-    axis_color = 'rgba(255,255,255,0.5)' if is_dark else 'black'
-    
-    fig.update_layout(
-        title={"text": f"Predictive Accuracy: {selected_model} on {selected_device}", "font": {"size": 22}},
+    scatter_fig.update_layout(
+        title={"text": f"Error Bias: {selected_device}", "font": {"size": 20}},
         xaxis_title="True Intensity (METs)", yaxis_title="Predicted Intensity (METs)",
         xaxis=dict(range=[0, 15], zeroline=False, gridcolor=grid_color), 
         yaxis=dict(range=y_range, zeroline=True, zerolinewidth=1, zerolinecolor=axis_color, gridcolor=grid_color),
-        template=template, margin=dict(t=80, b=50, l=50, r=30),
+        template=template, margin=dict(t=60, b=50, l=50, r=30),
         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        legend=dict(x=0.01, y=0.98, bgcolor="rgba(0,0,0,0)"), hovermode="closest", height=550
+        legend=dict(x=0.01, y=0.98, bgcolor="rgba(0,0,0,0)"), hovermode="closest", height=450
     )
-    return fig
+
+    # --- 2. Sequential Line Chart ---
+    line_fig = go.Figure()
+    line_fig.add_trace(go.Scatter(
+        y=filtered_df["True_METs"],
+        mode="lines+markers", name="Actual",
+        line=dict(color=COLORS['buttercup'], width=3), 
+        marker=dict(size=6),
+        hovertemplate="<b>Actual:</b> %{y:.2f} METs<extra></extra>"
+    ))
+    line_fig.add_trace(go.Scatter(
+        y=filtered_df["Pred_METs"],
+        mode="lines+markers", name="Predicted",
+        line=dict(color=COLORS['crocus'], width=3), 
+        marker=dict(size=6),
+        hovertemplate="<b>Predicted:</b> %{y:.2f} METs<extra></extra>"
+    ))
+    line_fig.update_layout(
+        title={"text": f"Test Sequence Tracking", "font": {"size": 20}},
+        xaxis_title="Sequenced Evaluation Windows", yaxis_title="Energy (METs)",
+        xaxis=dict(zeroline=False, gridcolor=grid_color), 
+        yaxis=dict(range=y_range, zeroline=True, zerolinewidth=1, zerolinecolor=axis_color, gridcolor=grid_color),
+        template=template, margin=dict(t=60, b=50, l=50, r=30),
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, bgcolor="rgba(0,0,0,0)"), 
+        hovermode="x unified", height=450
+    )
+
+    return scatter_fig, line_fig
 
 
 def run_server(host: str = None, port: int = 8050, debug: bool = False):
