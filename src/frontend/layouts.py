@@ -14,7 +14,7 @@ from ..constants import COLORS, DEVICE_COLORS, PARTICIPANT_MAPPING
 from ..backend.stats_utils import format_p_value
 
 
-def create_kpi_card(title: str, value: str, subtext: str, color: str = "primary", tooltip_text: Optional[str] = None) -> dbc.Card:
+def create_kpi_card(title: str, value: str, subtext: str, color: str = "buttercup", tooltip_text: Optional[str] = None) -> dbc.Card:
     """
     Create a KPI card component.
     
