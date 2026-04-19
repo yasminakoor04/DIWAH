@@ -71,7 +71,6 @@ def load_data(subject: str, session: str) -> Optional[Dict[str, Any]]:
     agg_flux = f'''from(bucket: "{INFLUX_BUCKET}")
     |> range(start: -100y)
     |> filter(fn: (r) => r._measurement == "accelerometer" and r.subject == "{safe_subject}" and r.session == "{safe_session}" and r._field == "magnitude")
-    |> aggregateWindow(every:5s, fn:mean, createEmpty:false)
     |> pivot(rowKey:["_time"], columnKey:["device"], valueColumn:"_value")'''
 
     if health_check():
