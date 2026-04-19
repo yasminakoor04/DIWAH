@@ -161,19 +161,24 @@ def create_controls(subjects: List[str], id_prefix: str = "") -> html.Div:
         Control panel component
     """
     return html.Div([
-        html.H5('Controls', className="controls-header"),
-        html.Label('Participant', className="controls-label"),
-        dcc.Dropdown(
-            id=f'{id_prefix}sub-dd',
-            options=[{'label': f"Participant {PARTICIPANT_MAPPING.get(str(s), s)}", 'value': s} for s in subjects],
-            value=subjects[0] if subjects else None,
-            className="controls-dropdown",
-            style={'color': '#212529'}
-        ),
-        html.Label('Session', className="controls-label"),
-        dcc.Dropdown(id=f'{id_prefix}sess-dd', className="controls-dropdown", style={'color': '#212529'}),
-        html.Label('Compare with', className="controls-label"),
-        dcc.Dropdown(id=f'{id_prefix}compare-sess-dd', placeholder='Select to compare...', style={'color': '#212529'}),
+        html.Div([
+            html.I(className="bi bi-sliders me-2"),
+            html.Span("Dashboard Controls", style={'fontWeight': '600', 'fontSize': '1.1rem'})
+        ], className="controls-header mb-4", style={'color': 'var(--primary-color)', 'borderBottom': '2px solid var(--primary-color)', 'paddingBottom': '10px'}),
+        
+        html.Div([
+            html.Label([
+                html.I(className="bi bi-person-badge text-muted me-2"),
+                "Active Participant"
+            ], className="fw-bold mb-2 text-muted", style={'fontSize': '0.9rem', 'textTransform': 'uppercase', 'letterSpacing': '0.5px'}),
+            dcc.Dropdown(
+                id=f'{id_prefix}sub-dd',
+                options=[{'label': f"Participant {PARTICIPANT_MAPPING.get(str(s), s)}", 'value': s} for s in subjects],
+                value=subjects[0] if subjects else None,
+                className="shadow-sm rounded-3 border-0",
+                style={'color': '#212529'}
+            ),
+        ], className="mb-4"),
         
         html.Div([
             dbc.Switch(
@@ -182,7 +187,7 @@ def create_controls(subjects: List[str], id_prefix: str = "") -> html.Div:
                 style={'display': 'none'}
             ),
         ], style={'display': 'none'})
-    ], className="card controls-card")
+    ], className="card border-0 shadow-sm", style={'padding': '25px', 'borderRadius': '12px'})
 
 
 def create_main_tabs() -> dbc.Tabs:

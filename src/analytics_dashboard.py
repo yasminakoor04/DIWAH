@@ -183,32 +183,7 @@ app.layout = dbc.Container([
 
 
 # Callbacks
-@app.callback(
-    [Output('sess-dd', 'options'),
-     Output('sess-dd', 'value'),
-     Output('compare-sess-dd', 'options'),
-     Output('mobile-sess-dd', 'options'),
-     Output('mobile-sess-dd', 'value'),
-     Output('mobile-compare-sess-dd', 'options')],
-    [Input('sub-dd', 'value'),
-     Input('mobile-sub-dd', 'value')]
-)
-def update_sessions(sub1, sub2):
-    """Update session dropdowns when subject changes."""
-    ctx = dash.callback_context
-    if not ctx.triggered:
-        sub = sub1 if sub1 else sub2
-    else:
-        trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
-        sub = sub1 if 'mobile' not in trigger_id else sub2
-        
-    if not sub:
-        return [], None, [], [], None, []
-        
-    sessions = tag_values('session', subject=sub)
-    opts = [{'label': s.title(), 'value': s} for s in sessions]
-    default = sessions[0] if sessions else None
-    return opts, default, opts, opts, default, opts
+
 
 
 @app.callback(
@@ -248,21 +223,21 @@ def update_subject_dropdown(ex1, ex2, curr_val1, curr_val2):
 @app.callback(
     Output('summary-cards', 'children'),
     [Input('sub-dd', 'value'),
-     Input('sess-dd', 'value'),
-     Input('mobile-sub-dd', 'value'),
-     Input('mobile-sess-dd', 'value')]
+     Input('mobile-sub-dd', 'value')]
 )
-def update_summary(sub1, sess1, sub2, sess2):
-    """Update KPI summary cards."""
+def update_summary(sub1, sub2):
+    """Update KPI summary cards for the Activity session."""
     ctx = dash.callback_context
     if not ctx.triggered:
-        sub, sess = sub1, sess1
+        sub = sub1
     else:
         trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
         if 'mobile' in trigger_id:
-            sub, sess = sub2, sess2
+            sub = sub2
         else:
-            sub, sess = sub1, sess1
+            sub = sub1
+            
+    sess = "activity"
     if not sub or not sess:
         return []
     
@@ -295,30 +270,27 @@ def update_theme(is_dark):
     Output('tab-content', 'children'),
     [Input('tabs', 'active_tab'),
      Input('sub-dd', 'value'),
-     Input('sess-dd', 'value'),
-     Input('compare-sess-dd', 'value'),
      Input('mobile-sub-dd', 'value'),
-     Input('mobile-sess-dd', 'value'),
-     Input('mobile-compare-sess-dd', 'value'),
      Input('theme-toggle', 'value'),
      Input('exclude-bad-data-switch', 'value'),
      Input('mobile-exclude-bad-data-switch', 'value')]
 )
-def render_tab(tab, sub1, sess1, comp_sess1, sub2, sess2, comp_sess2, is_dark_mode, ex1, ex2):
-    """Render content for the selected tab."""
+def render_tab(tab, sub1, sub2, is_dark_mode, ex1, ex2):
+    """Render content for the selected tab targeting the Activity session."""
     template = "plotly_dark" if is_dark_mode else "plotly_white"
     exclude_bad = ex1 or ex2
+    sess = "activity"
+    comp_sess = None
     
     ctx = dash.callback_context
-    # Default to desktop if no trigger (initial load)
     if not ctx.triggered:
-        sub, sess, comp_sess = sub1, sess1, comp_sess1
+        sub = sub1
     else:
         trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
         if 'mobile' in trigger_id:
-            sub, sess, comp_sess = sub2, sess2, comp_sess2
+            sub = sub2
         else:
-            sub, sess, comp_sess = sub1, sess1, comp_sess1
+            sub = sub1
             
     # For tabs that don't need a specific subject, handle them first
     if tab == 'tab-about':
