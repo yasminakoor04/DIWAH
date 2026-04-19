@@ -45,7 +45,7 @@ def load_data(subject: str, session: str) -> Optional[Dict[str, Any]]:
     Returns:
         Dict with keys 'raw', 'agg', 'stats', 'error'
     """
-    data = {'raw': {}, 'agg': {}, 'stats': {}, 'error': None}
+    data = {'raw': {}, 'agg': {}, 'stats': {}, 'calorimetry': {}, 'error': None}
     
     if not subject or not session:
         logger.warning(f"Invalid parameters: subject={subject}, session={session}")
@@ -98,6 +98,19 @@ def load_data(subject: str, session: str) -> Optional[Dict[str, Any]]:
                                 'end': str(d['_time'].max()),
                                 'windows': len(d)
                             }
+            # Query calorimetry (Vyntus HR)
+            calo_flux = f'''from(bucket: "{INFLUX_BUCKET}")
+            |> range(start: -100y)
+            |> filter(fn: (r) => r._measurement == "calorimetry" and r.subject == "{safe_subject}" and r.session == "{safe_session}" and r._field == "HR")
+            |> aggregateWindow(every:5s, fn:mean, createEmpty:false)
+            |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")'''
+            calo_df = query_api.query_data_frame(calo_flux)
+            if isinstance(calo_df, list) and calo_df:
+                calo_df = pd.concat(calo_df, ignore_index=False)
+            if isinstance(calo_df, pd.DataFrame) and not calo_df.empty and 'HR' in calo_df.columns:
+                calo_df['HR'] = pd.to_numeric(calo_df['HR'], errors='coerce')
+                calo_df = calo_df.dropna(subset=['HR'])
+                data['calorimetry']['hr'] = calo_df
         except Exception as e:
             logger.error(f"Error loading aggregated data from InfluxDB: {e}")
             data['error'] = f"Failed to load data from database: {e}"
@@ -254,6 +267,18 @@ def update_summary(sub1, sub2):
     ]
     for dev, st in stats.items():
         cards.append(create_kpi_card(dev.title(), f"{st['mean']:.2f}g", f"{st['count']:,} samples", tooltip_text=f"Average acceleration magnitude for {dev}"))
+    
+    # Vyntus HR card
+    hr_df = data.get('calorimetry', {}).get('hr')
+    if hr_df is not None and not hr_df.empty:
+        avg_hr = hr_df['HR'].mean()
+        hr_count = len(hr_df)
+        cards.append(create_kpi_card(
+            'Vyntus HR',
+            f"{avg_hr:.0f} bpm",
+            f"{hr_count:,} samples",
+            tooltip_text="Average heart rate recorded by the Vyntus One during this activity session"
+        ))
     
     return html.Div(cards)
 
