@@ -57,23 +57,34 @@ h6 {
 
 /* Dropdown styling for dark mode */
 [data-theme="dark"] .Select-control {
-    background-color: var(--bg-secondary);
-    border-color: var(--border-color);
-    color: var(--text-primary);
+    background-color: var(--bg-secondary) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-primary) !important;
 }
 
 [data-theme="dark"] .Select-menu-outer {
-    background-color: var(--bg-secondary);
-    border-color: var(--border-color);
-    color: var(--text-primary);
+    background-color: var(--bg-secondary) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-primary) !important;
 }
 
+[data-theme="dark"] .has-value.Select--single > .Select-control .Select-value .Select-value-label,
 [data-theme="dark"] .Select-value-label {
     color: var(--text-primary) !important;
 }
 
-[data-theme="dark"] .Select-input>input {
-    color: var(--text-primary);
+[data-theme="dark"] .Select-input > input {
+    color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .VirtualizedSelectOption {
+    background-color: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .VirtualizedSelectFocusedOption {
+    background-color: #444 !important;
+    color: var(--text-primary) !important;
 }
 
 /* --- Extracted Component Styles --- */

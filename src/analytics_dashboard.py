@@ -10,6 +10,8 @@ import os
 from typing import Dict, Any, Optional, List, Tuple
 
 import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
 import dash
 from dash import dcc, html, Input, Output, State
 import dash_bootstrap_components as dbc
@@ -43,7 +45,7 @@ def load_data(subject: str, session: str) -> Optional[Dict[str, Any]]:
     Returns:
         Dict with keys 'raw', 'agg', 'stats', 'error'
     """
-    data = {'raw': {}, 'agg': {}, 'stats': {}, 'error': None}
+    data = {'raw': {}, 'agg': {}, 'stats': {}, 'calorimetry': {}, 'error': None}
     
     if not subject or not session:
         logger.warning(f"Invalid parameters: subject={subject}, session={session}")
@@ -69,7 +71,6 @@ def load_data(subject: str, session: str) -> Optional[Dict[str, Any]]:
     agg_flux = f'''from(bucket: "{INFLUX_BUCKET}")
     |> range(start: -100y)
     |> filter(fn: (r) => r._measurement == "accelerometer" and r.subject == "{safe_subject}" and r.session == "{safe_session}" and r._field == "magnitude")
-    |> aggregateWindow(every:5s, fn:mean, createEmpty:false)
     |> pivot(rowKey:["_time"], columnKey:["device"], valueColumn:"_value")'''
 
     if health_check():
@@ -96,6 +97,19 @@ def load_data(subject: str, session: str) -> Optional[Dict[str, Any]]:
                                 'end': str(d['_time'].max()),
                                 'windows': len(d)
                             }
+            # Query calorimetry (Vyntus HR)
+            calo_flux = f'''from(bucket: "{INFLUX_BUCKET}")
+            |> range(start: -100y)
+            |> filter(fn: (r) => r._measurement == "calorimetry" and r.subject == "{safe_subject}" and r.session == "{safe_session}" and r._field == "HR")
+            |> aggregateWindow(every:5s, fn:mean, createEmpty:false)
+            |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")'''
+            calo_df = query_api.query_data_frame(calo_flux)
+            if isinstance(calo_df, list) and calo_df:
+                calo_df = pd.concat(calo_df, ignore_index=False)
+            if isinstance(calo_df, pd.DataFrame) and not calo_df.empty and 'HR' in calo_df.columns:
+                calo_df['HR'] = pd.to_numeric(calo_df['HR'], errors='coerce')
+                calo_df = calo_df.dropna(subset=['HR'])
+                data['calorimetry']['hr'] = calo_df
         except Exception as e:
             logger.error(f"Error loading aggregated data from InfluxDB: {e}")
             data['error'] = f"Failed to load data from database: {e}"
@@ -181,32 +195,7 @@ app.layout = dbc.Container([
 
 
 # Callbacks
-@app.callback(
-    [Output('sess-dd', 'options'),
-     Output('sess-dd', 'value'),
-     Output('compare-sess-dd', 'options'),
-     Output('mobile-sess-dd', 'options'),
-     Output('mobile-sess-dd', 'value'),
-     Output('mobile-compare-sess-dd', 'options')],
-    [Input('sub-dd', 'value'),
-     Input('mobile-sub-dd', 'value')]
-)
-def update_sessions(sub1, sub2):
-    """Update session dropdowns when subject changes."""
-    ctx = dash.callback_context
-    if not ctx.triggered:
-        sub = sub1 if sub1 else sub2
-    else:
-        trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
-        sub = sub1 if 'mobile' not in trigger_id else sub2
-        
-    if not sub:
-        return [], None, [], [], None, []
-        
-    sessions = tag_values('session', subject=sub)
-    opts = [{'label': s.title(), 'value': s} for s in sessions]
-    default = sessions[0] if sessions else None
-    return opts, default, opts, opts, default, opts
+
 
 
 @app.callback(
@@ -246,21 +235,21 @@ def update_subject_dropdown(ex1, ex2, curr_val1, curr_val2):
 @app.callback(
     Output('summary-cards', 'children'),
     [Input('sub-dd', 'value'),
-     Input('sess-dd', 'value'),
-     Input('mobile-sub-dd', 'value'),
-     Input('mobile-sess-dd', 'value')]
+     Input('mobile-sub-dd', 'value')]
 )
-def update_summary(sub1, sess1, sub2, sess2):
-    """Update KPI summary cards."""
+def update_summary(sub1, sub2):
+    """Update KPI summary cards for the Activity session."""
     ctx = dash.callback_context
     if not ctx.triggered:
-        sub, sess = sub1, sess1
+        sub = sub1
     else:
         trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
         if 'mobile' in trigger_id:
-            sub, sess = sub2, sess2
+            sub = sub2
         else:
-            sub, sess = sub1, sess1
+            sub = sub1
+            
+    sess = "activity"
     if not sub or not sess:
         return []
     
@@ -278,6 +267,18 @@ def update_summary(sub1, sess1, sub2, sess2):
     for dev, st in stats.items():
         cards.append(create_kpi_card(dev.title(), f"{st['mean']:.2f}g", f"{st['count']:,} samples", tooltip_text=f"Average acceleration magnitude for {dev}"))
     
+    # Vyntus HR card
+    hr_df = data.get('calorimetry', {}).get('hr')
+    if hr_df is not None and not hr_df.empty:
+        avg_hr = hr_df['HR'].mean()
+        hr_count = len(hr_df)
+        cards.append(create_kpi_card(
+            'Vyntus HR',
+            f"{avg_hr:.0f} bpm",
+            f"{hr_count:,} samples",
+            tooltip_text="Average heart rate recorded by the Vyntus One during this activity session"
+        ))
+    
     return html.Div(cards)
 
 
@@ -293,30 +294,27 @@ def update_theme(is_dark):
     Output('tab-content', 'children'),
     [Input('tabs', 'active_tab'),
      Input('sub-dd', 'value'),
-     Input('sess-dd', 'value'),
-     Input('compare-sess-dd', 'value'),
      Input('mobile-sub-dd', 'value'),
-     Input('mobile-sess-dd', 'value'),
-     Input('mobile-compare-sess-dd', 'value'),
      Input('theme-toggle', 'value'),
      Input('exclude-bad-data-switch', 'value'),
      Input('mobile-exclude-bad-data-switch', 'value')]
 )
-def render_tab(tab, sub1, sess1, comp_sess1, sub2, sess2, comp_sess2, is_dark_mode, ex1, ex2):
-    """Render content for the selected tab."""
+def render_tab(tab, sub1, sub2, is_dark_mode, ex1, ex2):
+    """Render content for the selected tab targeting the Activity session."""
     template = "plotly_dark" if is_dark_mode else "plotly_white"
     exclude_bad = ex1 or ex2
+    sess = "activity"
+    comp_sess = None
     
     ctx = dash.callback_context
-    # Default to desktop if no trigger (initial load)
     if not ctx.triggered:
-        sub, sess, comp_sess = sub1, sess1, comp_sess1
+        sub = sub1
     else:
         trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
         if 'mobile' in trigger_id:
-            sub, sess, comp_sess = sub2, sess2, comp_sess2
+            sub = sub2
         else:
-            sub, sess, comp_sess = sub1, sess1, comp_sess1
+            sub = sub1
             
     # For tabs that don't need a specific subject, handle them first
     if tab == 'tab-about':
@@ -338,7 +336,11 @@ def render_tab(tab, sub1, sess1, comp_sess1, sub2, sess2, comp_sess2, is_dark_mo
         if not corr_df.empty and 'Subject' in corr_df.columns:
             subjects = sorted(corr_df['Subject'].astype(str).unique())
         return create_correlation_layout(corr_df, subjects, template=template)
-        
+
+    if tab == 'tab-ml':
+        from src.frontend.layouts import create_ml_layout
+        return create_ml_layout()
+                
     # The remaining tabs require subject and session
     if not sub or not sess:
         return html.Div('Select subject and session', style={'padding': '40px', 'textAlign': 'center'})
@@ -627,6 +629,89 @@ def toggle_sidebar(n1, is_open):
     if n1:
         return not is_open
     return is_open
+
+
+# --- Live Data Hook for ML Tab ---
+import os
+from pathlib import Path
+_csv_path = Path(__file__).resolve().parents[1] / "scripts" / "Acc_pipe" / "data" / "processed" / "ml_predictions.csv"
+
+if _csv_path.exists():
+    ml_df = pd.read_csv(_csv_path)
+else:
+    # Graceful fallback: empty DataFrame matching expected schema
+    ml_df = pd.DataFrame(columns=["Device", "Model", "True_METs", "Pred_METs"])
+
+@app.callback(
+    [Output("ml-scatter-plot", "figure"),
+     Output("ml-line-plot", "figure")],
+    [Input("ml-device-dd", "value"),
+     Input("ml-model-dd", "value"),
+     Input("theme-toggle", "value")]
+)
+def update_ml_scatter(selected_device, selected_model, is_dark):
+    template = "plotly_dark" if is_dark else "plotly_white"
+    filtered_df = ml_df[(ml_df["Device"] == selected_device) & (ml_df["Model"] == selected_model)]
+    
+    # Common visuals
+    grid_color = 'rgba(255,255,255,0.1)' if is_dark else 'rgba(0,0,0,0.1)'
+    axis_color = 'rgba(255,255,255,0.5)' if is_dark else 'black'
+    y_range = [-10, 45] if (selected_model == "Multiple Linear Regression" and selected_device != "ActiGraph") else [0, 20]
+
+    # --- 1. Scatter Plot (y=x) ---
+    scatter_fig = go.Figure()
+    scatter_fig.add_trace(go.Scatter(
+        x=filtered_df["True_METs"], y=filtered_df["Pred_METs"],
+        mode="markers", name="Predictions",
+        marker=dict(color=COLORS['crocus'], size=8, opacity=0.6, line=dict(width=1, color="rgba(255,255,255,0.2)")),
+        hovertemplate="<b>True:</b> %{x:.2f} METs<br><b>Predicted:</b> %{y:.2f} METs<extra></extra>"
+    ))
+    scatter_fig.add_trace(go.Scatter(
+        x=[0, 15], y=[0, 15], mode="lines", name="Perfect Prediction (y=x)",
+        line=dict(color=COLORS['buttercup'], width=3, dash="dash"), hoverinfo="skip"
+    ))
+    scatter_fig.update_layout(
+        title={"text": f"Error Bias: {selected_device}", "font": {"size": 20}},
+        xaxis_title="True Intensity (METs)", yaxis_title="Predicted Intensity (METs)",
+        xaxis=dict(range=[0, 15], zeroline=False, gridcolor=grid_color), 
+        yaxis=dict(range=y_range, zeroline=True, zerolinewidth=1, zerolinecolor=axis_color, gridcolor=grid_color),
+        template=template, margin=dict(t=60, b=50, l=50, r=30),
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        legend=dict(x=0.01, y=0.98, bgcolor="rgba(0,0,0,0)"), hovermode="closest", height=450
+    )
+
+    # --- 2. Sequential Line Chart (Sorted by True_METs for clarity) ---
+    line_fig = go.Figure()
+    
+    # Sort by actual ground truth so the plot makes logical sense from Rest to Max Activity
+    sorted_df = filtered_df.sort_values(by="True_METs").reset_index(drop=True)
+    
+    line_fig.add_trace(go.Scatter(
+        y=sorted_df["True_METs"],
+        mode="lines+markers", name="Actual",
+        line=dict(color=COLORS['buttercup'], width=3), 
+        marker=dict(size=6),
+        hovertemplate="<b>Actual:</b> %{y:.2f} METs<extra></extra>"
+    ))
+    line_fig.add_trace(go.Scatter(
+        y=sorted_df["Pred_METs"],
+        mode="lines+markers", name="Predicted",
+        line=dict(color=COLORS['crocus'], width=3), 
+        marker=dict(size=6),
+        hovertemplate="<b>Predicted:</b> %{y:.2f} METs<extra></extra>"
+    ))
+    line_fig.update_layout(
+        title={"text": f"Tracking Across Activity Spectrum", "font": {"size": 20}},
+        xaxis_title="Activity Spectrum (Ordered from Rest to Peak Exercise)", yaxis_title="Energy (METs)",
+        xaxis=dict(zeroline=False, gridcolor=grid_color), 
+        yaxis=dict(range=y_range, zeroline=True, zerolinewidth=1, zerolinecolor=axis_color, gridcolor=grid_color),
+        template=template, margin=dict(t=60, b=50, l=50, r=30),
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, bgcolor="rgba(0,0,0,0)"), 
+        hovermode="x unified", height=450
+    )
+
+    return scatter_fig, line_fig
 
 
 def run_server(host: str = None, port: int = 8050, debug: bool = False):

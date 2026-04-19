@@ -26,7 +26,7 @@ from src.config import INFLUX_BUCKET, INFLUX_ORG, INFLUX_TOKEN, INFLUX_URL
 
 BAD_SUBJECTS: List[str] = ["2004", "2005", "2008", "2014", "2019", "2032"]
 
-_DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+_DATA_DIR = Path(__file__).resolve().parent / "Acc_pipe" / "data" / "processed"
 DEFAULT_TRIMMED = _DATA_DIR / "master_epochs.csv"
 DEFAULT_UNTRIMMED = _DATA_DIR / "master_epochs_untrimmed.csv"
 
@@ -79,74 +79,90 @@ def load_and_prepare(trimmed_csv: Path, untrimmed_csv: Path) -> pd.DataFrame:
     return unified
 
 
-def to_measurement_df(unified: pd.DataFrame) -> pd.DataFrame:
-    frames = []
+def to_measurement_dfs(unified: pd.DataFrame) -> Dict[str, pd.DataFrame]:
+    dfs = {}
 
+    # 1. Accelerometer Data
+    acc_frames = []
     for vm_col, device in VM_TO_DEVICE.items():
         if vm_col not in unified.columns:
             continue
-
         chunk = unified[["subject", "timestamp", vm_col]].copy()
         chunk["magnitude"] = pd.to_numeric(chunk[vm_col], errors="coerce")
         chunk = chunk.dropna(subset=["magnitude"])
         chunk["device"] = device
         chunk["session"] = "activity"
-        frames.append(chunk[["timestamp", "subject", "device", "session", "magnitude"]])
+        acc_frames.append(chunk[["timestamp", "subject", "device", "session", "magnitude"]])
 
-    if not frames:
-        raise ValueError("None of vm_mean_actigraph/vm_mean_bangle/vm_mean_emotibit were present")
+    if acc_frames:
+        out_acc = pd.concat(acc_frames, ignore_index=True)
+        out_acc = out_acc.dropna(subset=["timestamp", "subject", "magnitude"])
+        out_acc = out_acc.set_index("timestamp").sort_index()
+        dfs["accelerometer"] = out_acc
 
-    out = pd.concat(frames, ignore_index=True)
-    out = out.dropna(subset=["timestamp", "subject", "magnitude"])
-    out = out.sort_values("timestamp")
-    out = out.set_index("timestamp")
-    return out
+    # 2. Calorimetry Data (Vyntus HR & METs)
+    calo_cols = []
+    if "mets" in unified.columns: calo_cols.append("mets")
+    if "hr_polar" in unified.columns: calo_cols.append("hr_polar")
+
+    if calo_cols:
+        calo_chunk = unified[["subject", "timestamp"] + calo_cols].copy()
+        calo_chunk = calo_chunk.dropna(subset=calo_cols, how="all")
+        
+        # Rename to uppercase to strictly match InfluxDB schema
+        rename_map = {"hr_polar": "HR", "mets": "METS"}
+        calo_chunk = calo_chunk.rename(columns=rename_map)
+        calo_chunk["session"] = "activity"
+        
+        final_cols = [rename_map.get(c, c) for c in calo_cols]
+        calo_chunk = calo_chunk.dropna(subset=["subject", "timestamp"] + final_cols)
+        calo_chunk = calo_chunk.set_index("timestamp").sort_index()
+        dfs["calorimetry"] = calo_chunk
+
+    if not dfs:
+        raise ValueError("No valid accelerometer or calorimetry data found in frame!")
+    return dfs
 
 
-def write_to_influx(df: pd.DataFrame) -> None:
+def write_to_influx(dfs: Dict[str, pd.DataFrame]) -> None:
     with InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG, timeout=120_000) as client:
         write_api = client.write_api(write_options=ASYNCHRONOUS)
-
         chunk_size = 50_000
-        if len(df) <= chunk_size:
-            write_api.write(
-                bucket=INFLUX_BUCKET,
-                org=INFLUX_ORG,
-                record=df,
-                data_frame_measurement_name="accelerometer",
-                data_frame_tag_columns=["subject", "device", "session"],
-                write_precision=WritePrecision.S,
-            )
-        else:
+
+        for measurement, df in dfs.items():
+            if measurement == "accelerometer":
+                tag_cols = ["subject", "device", "session"]
+            else:
+                tag_cols = ["subject", "session"]
+
             for start in range(0, len(df), chunk_size):
                 part = df.iloc[start:start + chunk_size]
                 write_api.write(
                     bucket=INFLUX_BUCKET,
                     org=INFLUX_ORG,
                     record=part,
-                    data_frame_measurement_name="accelerometer",
-                    data_frame_tag_columns=["subject", "device", "session"],
+                    data_frame_measurement_name=measurement,
+                    data_frame_tag_columns=tag_cols,
                     write_precision=WritePrecision.S,
                 )
-
         write_api.close()
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Ingest trimmed+untrimmed unified 5s epochs")
+    parser = argparse.ArgumentParser(description="Ingest trimmed+untrimmed unified 5s epochs (Wearables + Calorimetry)")
     parser.add_argument("--trimmed-csv", type=Path, default=DEFAULT_TRIMMED)
     parser.add_argument("--untrimmed-csv", type=Path, default=DEFAULT_UNTRIMMED)
     args = parser.parse_args()
 
     unified = load_and_prepare(args.trimmed_csv, args.untrimmed_csv)
-    measurement_df = to_measurement_df(unified)
+    dfs = to_measurement_dfs(unified)
 
-    write_to_influx(measurement_df)
+    write_to_influx(dfs)
 
-    unique_subjects = sorted(measurement_df["subject"].astype(str).unique())
-    print(f"Ingested rows: {len(measurement_df):,}")
-    print(f"Subjects pushed: {len(unique_subjects)}")
-    print("Subject IDs: " + ", ".join(unique_subjects))
+    for measurement, df in dfs.items():
+        unique_subjects = sorted(df["subject"].astype(str).unique())
+        print(f"[{measurement.upper()}] Ingested {len(df):,} rows across {len(unique_subjects)} subjects.")
+    print("Done!")
 
 
 if __name__ == "__main__":

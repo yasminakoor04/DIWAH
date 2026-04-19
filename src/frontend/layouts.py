@@ -161,18 +161,24 @@ def create_controls(subjects: List[str], id_prefix: str = "") -> html.Div:
         Control panel component
     """
     return html.Div([
-        html.H5('Controls', className="controls-header"),
-        html.Label('Participant', className="controls-label"),
-        dcc.Dropdown(
-            id=f'{id_prefix}sub-dd',
-            options=[{'label': f"Participant {PARTICIPANT_MAPPING.get(str(s), s)}", 'value': s} for s in subjects],
-            value=subjects[0] if subjects else None,
-            className="controls-dropdown"
-        ),
-        html.Label('Session', className="controls-label"),
-        dcc.Dropdown(id=f'{id_prefix}sess-dd', className="controls-dropdown"),
-        html.Label('Compare with', className="controls-label"),
-        dcc.Dropdown(id=f'{id_prefix}compare-sess-dd', placeholder='Select to compare...'),
+        html.Div([
+            html.I(className="bi bi-sliders me-2"),
+            html.Span("Dashboard Controls", style={'fontWeight': '600', 'fontSize': '1.1rem'})
+        ], className="controls-header mb-4", style={'color': 'var(--primary-color)', 'borderBottom': '2px solid var(--primary-color)', 'paddingBottom': '10px'}),
+        
+        html.Div([
+            html.Label([
+                html.I(className="bi bi-person-badge text-muted me-2"),
+                "Active Participant"
+            ], className="fw-bold mb-2 text-muted", style={'fontSize': '0.9rem', 'textTransform': 'uppercase', 'letterSpacing': '0.5px'}),
+            dcc.Dropdown(
+                id=f'{id_prefix}sub-dd',
+                options=[{'label': f"Participant {PARTICIPANT_MAPPING.get(str(s), s)}", 'value': s} for s in subjects],
+                value=subjects[0] if subjects else None,
+                className="shadow-sm rounded-3 border-0",
+                style={'color': '#212529'}
+            ),
+        ], className="mb-4"),
         
         html.Div([
             dbc.Switch(
@@ -181,7 +187,7 @@ def create_controls(subjects: List[str], id_prefix: str = "") -> html.Div:
                 style={'display': 'none'}
             ),
         ], style={'display': 'none'})
-    ], className="card controls-card")
+    ], className="card border-0 shadow-sm", style={'padding': '25px', 'borderRadius': '12px'})
 
 
 def create_main_tabs() -> dbc.Tabs:
@@ -190,6 +196,7 @@ def create_main_tabs() -> dbc.Tabs:
         dbc.Tab(label='Time Series', tab_id='tab-timeseries'),
         dbc.Tab(label='Statistics', tab_id='tab-stats'),
         dbc.Tab(label='Correlations', tab_id='tab-corr'),
+        dbc.Tab(label='Machine Learning', tab_id='tab-ml'),
         dbc.Tab(label='About', tab_id='tab-about')
     ], id='tabs', active_tab='tab-timeseries')
 
@@ -640,16 +647,18 @@ def create_correlation_layout(corr_df: pd.DataFrame, subjects: List[str], templa
 
 def create_about_layout() -> html.Div:
     """
-    Create the 'About' tab layout with project information.
+    Create the 'About' tab layout driven by the README thesis context.
     """
+    import dash
     return html.Div([
         # Header Section
-        # Header Section
         html.Div([
-            html.H3("Design of an Intelligent Wearable for Activity and Health – The DIWAH Study", 
+            html.H3("Predicting Exercise Intensity from Smartwatch Data: Device Capabilities and Limitations", 
                    style={'margin': 0, 'fontWeight': '600', 'color': COLORS['soot']}),
-            html.P("Project Background, Methodology, and Goals.", 
-                  style={'margin': '5px 0 0 0', 'fontSize': '0.95rem', 'color': COLORS['soot']})
+            html.P("A Bachelor's Thesis Project by Hanna Szalai & Yasmin Akoor.", 
+                  style={'margin': '5px 0 0 0', 'fontSize': '1.05rem', 'color': COLORS['soot']}),
+            html.P("In collaboration with the Linnaeus University DIWAH Study.", 
+                  style={'margin': '5px 0 0 0', 'fontSize': '0.95rem', 'color': '#6c757d', 'fontStyle': 'italic'})
         ], style={
             'background': f"linear-gradient(135deg, {COLORS['buttercup']} 0%, {COLORS['lily']} 100%)",
             'padding': '20px 25px',
@@ -658,106 +667,337 @@ def create_about_layout() -> html.Div:
             'boxShadow': '0 2px 8px rgba(0,0,0,0.08)'
         }),
 
-        # Goal & Vision Section
-        dbc.Card([
-            dbc.CardHeader(html.H4("Why Are We Doing This?", className="m-0")),
-            dbc.CardBody([
-                html.P([
-                    "The overarching goal of the DIWAH-study is to develop algorithms for wearables that can be used in healthcare to ",
-                    html.Strong("promote health, prevent disease, and aid in treatment"),
-                    ". Current healthcare faces a demographic shift with an aging population, making it crucial to have proactive strategies."
-                ], className="card-text"),
-                html.P([
-                    "We are developing AI-based algorithms to assess ",
-                    html.Strong("Physical Activity (PA), Energy Expenditure (EE), and Blood Pressure (BP)"),
-                    " at an individual level. The ultimate vision is a system that provides tailored activity recommendations in real-time to optimize an individual's health without human intervention."
-                ], className="card-text"),
-            ])
-        ], className="mb-4 shadow-sm dashboard-card"),
-
-        # Background & Challenges Section (Restored)
+        # Overview & Challenge
         dbc.Row([
             dbc.Col([
-                html.H4("The Challenge", className="mt-3 text-primary"),
-                html.P([
-                    "Globally, life expectancy is increasing. One major societal challenge is to develop strategies for maintaining good health and quality of life in older age groups. "
-                    "Regular Physical Activity (PA) is key to preventing diseases like cardiovascular issues and diabetes."
-                ]),
-                dbc.Alert([
-                    html.H5("Commercial Wearables Issue", className="alert-heading"),
-                    html.P("Current commercial wearables often have large measurement errors (25-90% off for Energy Expenditure) and questionable data security. They rely on algorithms trained on young, healthy populations, making them inaccurate for older adults."),
-                    html.Hr(),
-                    html.P("Our approach uses open-source, transparent, and clinically validated algorithms.", className="mb-0")
-                ], color="warning", className="mt-3")
-            ], xs=12, className="mb-4"),
-        ]),
-
-        dbc.Row([
-            # Left Column: Devices & Data
-            dbc.Col([
                 dbc.Card([
-                    dbc.CardHeader(html.H5("The Devices & Data", className="m-0")),
-                    dbc.CardBody([
-                        html.P("We are comparing open-source wearables against commercial standards and gold-standard methods:", className="card-text"),
-                        html.Ul([
-                            html.Li([html.Strong("Bangle.js 2 & Pinetime:"), " Open-source smartwatches allowing full access to raw sensor data."]),
-                            html.Li([html.Strong("Emotibit:"), " A research-grade biosensor for physiological data."]),
-                            html.Li([html.Strong("Fitbit Sense:"), " A commercial reference device."]),
-                        ]),
-                    ])
-                ], className="h-100 shadow-sm dashboard-card")
-            ], md=6, className="mb-4"),
-
-            # Right Column: Why Rest vs Activity
-            dbc.Col([
-                dbc.Card([
-                    dbc.CardHeader(html.H5("Why Rest vs. Activity?", className="m-0")),
+                    dbc.CardHeader(html.H5("The Research Context", className="m-0")),
                     dbc.CardBody([
                         html.P([
-                            "A key challenge is distinguishing physiological responses during physical activity versus rest. ",
-                            "By accurately classifying these states, we can ensure that health recommendations are context-aware and precise."
+                            "Wearable sensors and machine learning are increasingly used to predict exercise energy expenditure to promote health, especially in the elderly. ",
+                            "However, popular commercial wearables (like Fitbit or Apple Watch) are expensive, 'black box' systems that restrict access to raw sensor data."
                         ], className="card-text"),
-                        html.Ul([
-                            html.Li([html.Strong("Rest (20 min):"), " Establishing baseline metrics and measuring Blood Pressure."]),
-                            html.Li([html.Strong("Activity:"), " Performing specific tasks to measure Energy Expenditure and movement intensity."]),
-                        ]),
+                        html.P(
+                            "This thesis investigates whether significantly cheaper, open-source consumer wearables can reliably predict exercise intensity using raw heart rate and accelerometer data.",
+                            className="card-text fw-bold text-primary"
+                        ),
+                        html.P(
+                            "By comparing models trained on open-source devices (EmotiBit, Bangle.js) against a research-grade clinical baseline (ActiGraph), we evaluate their predictive accuracy against a medical-grade Vyntus calorimetry systems (a breathing mask that tracks exact oxygen consumption).",
+                            className="card-text text-muted"
+                        )
                     ])
                 ], className="h-100 shadow-sm dashboard-card")
-            ], md=6, className="mb-4"),
+            ], md=12, lg=7, className="mb-4"),
+
+            # Research Questions
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardHeader(html.H5("Research Questions", className="m-0")),
+                    dbc.CardBody([
+                        html.P("This project aims to bridge the knowledge gap through two distinct research phases:", className="card-text"),
+                        html.Ul([
+                            html.Li([html.Strong("RQ1 (Design Science):"), " How can heterogeneous data streams from three different wearable devices with varying sampling rates, missing data, and clock drift be reliably synchronized and mathematically aligned for comparative analysis?"]),
+                            html.Br(),
+                            html.Li([html.Strong("RQ2 (Controlled Experiment):"), " Given properly synchronized heart rate and accelerometer data across heterogeneous wearables, is it feasible to predict exercise intensity (METs), and how does prediction performance vary by device architecture?"])
+                        ]),
+                    ])
+                ], className="h-100 shadow-sm dashboard-card", style={'borderLeft': f'4px solid {COLORS["crocus"]}'})
+            ], md=12, lg=5, className="mb-4"),
         ]),
 
-        # Methods & Phases (Restored Accordion)
-        html.H4("Project Methodology & Phases", className="mt-4 text-primary"),
-        dbc.Accordion([
-            dbc.AccordionItem([
-                html.P("Goal: Identify and test different wearables (Bangle.js 2, Pinetime, Emotibit, Fitbit Sense) to ensure raw data access."),
-            ], title="Phase 1: Mechanical Signal Testing"),
-            dbc.AccordionItem([
-                html.P("Goal: Develop and test AI-based algorithms in a controlled laboratory environment with ~30 participants."),
-                html.Ul([
-                    html.Li("Bioimpedance measurements (Body Composition)"),
-                    html.Li("Health-related physical fitness tests"),
-                    html.Li("Blood pressure measurement after rest")
-                ])
-            ], title="Phase 2: Laboratory Testing"),
-            dbc.AccordionItem([
-                html.P("Goal: Test the prototype during free living with ~50 participants."),
-                html.P("Validation: Using Doubly Labeled Water (DLW) as the gold standard for Energy Expenditure errors within ±2%."),
-            ], title="Phase 3: Naturalistic Validation"),
-        ], start_collapsed=True, className="mb-5"),
-
-        # Project Team & Links
-        dbc.Card([
-            dbc.CardBody([
-                html.H5("Who Are We?", className="card-title"),
-                html.P([
-                    "This is a collaborative seed project involving researchers from ",
-                    html.A("LNU Centre for Data Intensive Sciences and Applications (DISA)", href="https://lnu.se/en/research/research-groups/linnaeus-university-centre-for-data-intensive-sciences-and-applications/seed-projects/seed-project-development-of-an-intelligent-wearable-the-diwah-study/", target="_blank"),
-                    ", the eHealth Institute, and the Knowledge Environment Sustainable Health."
-                ], className="card-text"),
-                html.P("Our team combines expertise in Physical Activity research, AI modelling, IoT development, and Biochemistry to solve complex health challenges.", className="card-text"),
-            ])
-        ], className="mb-4 shadow-sm dashboard-card"),
+        # Hardware & Alignment Visuals
+        html.H4("Methodology & Visual Alignment", className="mt-3 mb-3 text-primary", style={'borderBottom': f'2px solid {COLORS["buttercup"]}', 'paddingBottom': '10px'}),
         
+        dbc.Row([
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardImg(src=dash.get_asset_url('pictures/image.png'), top=True, style={'maxHeight': '300px', 'objectFit': 'contain', 'padding': '10px'}),
+                    dbc.CardBody([
+                        html.H5("The Hardware Suite", className="card-title"),
+                        html.P("All the wearables and clinical devices worn by a subject during data collection. The data pipeline extracts hardware-specific features to assess their absolute predictive caps.", className="card-text text-muted")
+                    ])
+                ], className="h-100 shadow-sm dashboard-card")
+            ], md=12, lg=5, className="mb-4"),
+
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardImg(src=dash.get_asset_url('pictures/alignment_shiny_app.png'), top=True, style={'maxHeight': '300px', 'objectFit': 'cover', 'objectPosition': 'top'}),
+                    dbc.CardBody([
+                        html.H5("Signal Synchronization", className="card-title"),
+                        html.P([
+                            "We utilized a custom ", 
+                            html.Strong("Shiny App"), 
+                            " to manually cut, align, and synchronize the raw data. The synchronized epochs created from this tool form the core dataset we ingest to calculate highly reliable cross-correlation markers (r > 0.90)."
+                        ], className="card-text text-muted")
+                    ])
+                ], className="h-100 shadow-sm dashboard-card")
+            ], md=12, lg=7, className="mb-4"),
+        ]),
+
+        # Steps/Milestones
+        dbc.Card([
+            dbc.CardHeader(html.H5("Steps, Milestones, and Actions", className="m-0")),
+            dbc.CardBody([
+                html.Ul([
+                    html.Li([html.Strong("Data Integration Tools: "), "Develop parsing and mathematical alignment tools to synchronize the raw, un-synced data from the ActiGraph, EmotiBit, and Bangle.js."]),
+                    html.Li([html.Strong("Database Setup: "), "Deploy an InfluxDB architecture specifically optimized for high-frequency time-series sensor storage."]),
+                    html.Li([html.Strong("Dashboard Development: "), "Build a visual dashboard to manually validate the data alignment and inspect the heart rate and movement data prior to machine learning."]),
+                    html.Li([html.Strong("Feature Extraction: "), "Use the open-source FLIRT Python package to extract standardized physiological features from 5-second data epochs."]),
+                    html.Li([html.Strong("Model Training & Evaluation: "), "Train simple regression and basic ML models (e.g., Random Forest) on the extracted features, and compare their predicted MET values against the Vyntus golden standard."])
+                ], className="mt-2 mb-0", style={'lineHeight': '1.8'})
+            ])
+        ], className="mb-5 shadow-sm dashboard-card", style={'borderLeft': f'4px solid {COLORS["ivy"]}'})
+
     ], className="p-4")
 
+import plotly.graph_objects as go
+
+def create_ml_layout() -> html.Div:
+    """
+    Renders the Machine Learning Dashboard evaluating Random Forest vs MLR.
+    """
+    metrics_data = {
+        'ActiGraph (Clinical)': {'MLR_MAE': 4.308, 'MLR_R2': -1.228, 'RF_MAE': 2.066, 'RF_R2': 0.518},
+        'EmotiBit (Consumer)': {'MLR_MAE': 7.288, 'MLR_R2': -7.325, 'RF_MAE': 2.033, 'RF_R2': 0.627},
+        'Bangle.js (Consumer)': {'MLR_MAE': 23.183, 'MLR_R2': -25.000, 'RF_MAE': 1.995, 'RF_R2': 0.561}
+    }
+    
+    import json
+    from pathlib import Path
+    metrics_path = Path(__file__).resolve().parents[2] / "scripts" / "Acc_pipe" / "data" / "processed" / "ml_metrics.json"
+    if metrics_path.exists():
+        try:
+            with open(metrics_path, 'r') as f:
+                real_res = json.load(f)
+            
+            # Map the actual exported metrics back to our graph labels
+            if 'actigraph' in real_res:
+                metrics_data['ActiGraph (Clinical)'] = {
+                    'MLR_MAE': real_res['actigraph']['MLR']['MAE'],
+                    'MLR_R2': real_res['actigraph']['MLR']['R2'],
+                    'RF_MAE': real_res['actigraph']['RF']['MAE'],
+                    'RF_R2': real_res['actigraph']['RF']['R2']
+                }
+            if 'emotibit' in real_res:
+                metrics_data['EmotiBit (Consumer)'] = {
+                    'MLR_MAE': real_res['emotibit']['MLR']['MAE'],
+                    'MLR_R2': real_res['emotibit']['MLR']['R2'],
+                    'RF_MAE': real_res['emotibit']['RF']['MAE'],
+                    'RF_R2': real_res['emotibit']['RF']['R2']
+                }
+            if 'bangle' in real_res:
+                metrics_data['Bangle.js (Consumer)'] = {
+                    'MLR_MAE': real_res['bangle']['MLR']['MAE'],
+                    'MLR_R2': real_res['bangle']['MLR']['R2'],
+                    'RF_MAE': real_res['bangle']['RF']['MAE'],
+                    'RF_R2': real_res['bangle']['RF']['R2']
+                }
+        except Exception as e:
+            print(f"Error loading real ML metrics: {e}")
+
+    devices = list(metrics_data.keys())
+    
+    # Extract data for plotting
+    mlr_r2 = [metrics_data[d]['MLR_R2'] for d in devices]
+    rf_r2 = [metrics_data[d]['RF_R2'] for d in devices]
+    
+    mlr_mae = [metrics_data[d]['MLR_MAE'] for d in devices]
+    rf_mae = [metrics_data[d]['RF_MAE'] for d in devices]
+
+    # --- CHART 1: R-Squared (Explained Variance) ---
+    fig_r2 = go.Figure()
+    fig_r2.add_trace(go.Bar(
+        x=devices, y=mlr_r2,
+        name='Linear Regression',
+        marker_color=COLORS['crocus'],
+        text=[f"{val:.2f}" for val in mlr_r2],
+        textposition='outside',
+        cliponaxis=False,
+        hovertemplate="<b>%{x}</b><br>MLR R²: %{y:.3f}<extra></extra>"
+    ))
+    fig_r2.add_trace(go.Bar(
+        x=devices, y=rf_r2,
+        name='Random Forest',
+        marker_color=COLORS['buttercup'],
+        text=[f"{val:.2f}" for val in rf_r2],
+        textposition='outside',
+        cliponaxis=False,
+        hovertemplate="<b>%{x}</b><br>Random Forest R²: %{y:.3f}<extra></extra>"
+    ))
+    
+    fig_r2.update_layout(
+        yaxis_title="R-squared (R² Score)",
+        barmode='group',
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#888'),
+        legend=dict(orientation="h", yanchor="top", y=-0.3, xanchor="center", x=0.5),
+        margin=dict(t=45, b=100, l=40, r=20),
+        yaxis=dict(zeroline=True, zerolinewidth=2, zerolinecolor='rgba(150,150,150,0.5)', gridcolor='rgba(150,150,150,0.1)'),
+        hovermode="x unified"
+    )
+
+    # --- CHART 2: Mean Absolute Error (MAE) ---
+    fig_mae = go.Figure()
+    fig_mae.add_trace(go.Bar(
+        x=devices, y=mlr_mae,
+        name='Linear Regression',
+        marker_color=COLORS['crocus'],
+        text=[f"{val:.2f}" for val in mlr_mae],
+        textposition='outside',
+        cliponaxis=False,
+        hovertemplate="<b>%{x}</b><br>MLR MAE: %{y:.3f} METs<extra></extra>"
+    ))
+    fig_mae.add_trace(go.Bar(
+        x=devices, y=rf_mae,
+        name='Random Forest',
+        marker_color=COLORS['buttercup'],
+        text=[f"{val:.2f}" for val in rf_mae],
+        textposition='outside',
+        cliponaxis=False,
+        hovertemplate="<b>%{x}</b><br>Random Forest MAE: %{y:.3f} METs<extra></extra>"
+    ))
+    
+    fig_mae.update_layout(
+        yaxis_title="Mean Absolute Error (METs)",
+        barmode='group',
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#888'),
+        legend=dict(orientation="h", yanchor="top", y=-0.3, xanchor="center", x=0.5),
+        margin=dict(t=45, b=100, l=40, r=20),
+        yaxis=dict(gridcolor='rgba(150,150,150,0.1)'),
+        hovermode="x unified"
+    )
+
+    return html.Div([
+        # === Header Banner ===
+        html.Div([
+            html.Div([
+                html.H3("Machine Learning Evaluation", 
+                       style={'margin': 0, 'fontWeight': '600', 'color': COLORS['soot']}),
+                html.P("Predicting Energy Expenditure (METs) using ActiGraph vs. Consumer Wearables", 
+                      style={'margin': '5px 0 0 0', 'fontSize': '0.95rem', 'color': COLORS['soot']})
+            ])
+        ], style={
+            'background': f"linear-gradient(135deg, {COLORS['buttercup']} 0%, {COLORS['lily']} 100%)",
+            'padding': '20px 25px',
+            'borderRadius': '12px',
+            'marginBottom': '25px',
+            'boxShadow': '0 2px 8px rgba(0,0,0,0.08)'
+        }),
+        
+        # Methodological Explanation
+        html.Div([
+            html.P(
+                "Random Forest algorithms successfully map non-linear biological movement artifacts, "
+                "reducing the Mean Absolute Error to ~2 METs across both clinical and consumer devices.",
+                className="text-muted",
+                style={'fontSize': '1.05rem', 'marginBottom': '25px'}
+            )
+        ]),
+        
+        # === ROW 1: R-Squared and MAE Metrics ===
+        dbc.Row([
+            dbc.Col([
+                html.Div([
+                    html.Div([
+                        html.Span("Model Accuracy (R² Score)", className="text-muted", style={'fontSize': '0.85rem'})
+                    ], style={'padding': '12px 20px', 'borderBottom': '1px solid var(--border-color)'}),
+                    dcc.Loading(dcc.Graph(figure=fig_r2, config={'displayModeBar': False}, style={'height': '400px'}, responsive=True))
+                ], className="card", style={
+                    'borderRadius': '10px',
+                    'boxShadow': 'var(--card-shadow)',
+                    'overflow': 'hidden',
+                    'borderLeft': f'4px solid {COLORS["buttercup"]}'
+                })
+            ], xs=12, lg=6, className="mb-4"),
+            
+            dbc.Col([
+                html.Div([
+                    html.Div([
+                        html.Span("Prediction Error (MAE in METs)", className="text-muted", style={'fontSize': '0.85rem'})
+                    ], style={'padding': '12px 20px', 'borderBottom': '1px solid var(--border-color)'}),
+                    dcc.Loading(dcc.Graph(figure=fig_mae, config={'displayModeBar': False}, style={'height': '400px'}, responsive=True))
+                ], className="card", style={
+                    'borderRadius': '10px',
+                    'boxShadow': 'var(--card-shadow)',
+                    'overflow': 'hidden',
+                    'borderLeft': f'4px solid {COLORS["crocus"]}'
+                })
+            ], xs=12, lg=6, className="mb-4")
+        ]),
+        
+        # === ROW 2: Interactive Scatter Plot Section ===
+        html.Div([
+            html.H5("True vs. Predicted Exercise Intensity (METs)", style={
+                'fontWeight': '600', 'marginBottom': '15px',
+                'paddingBottom': '10px', 'borderBottom': f'2px solid {COLORS["buttercup"]}'
+            }),
+        ], style={'marginTop': '20px'}),
+        
+        dbc.Row([
+            dbc.Col([
+                html.Div([
+                    # Controls Head
+                    html.Div([
+                        html.Span("Interactive Model Prediction Filter", className="text-muted", style={'fontSize': '0.85rem'})
+                    ], style={'padding': '12px 20px', 'borderBottom': '1px solid var(--border-color)'}),
+                    # Dropdowns container
+                    html.Div([
+                        dbc.Row([
+                            dbc.Col([
+                                html.Label("Select Device:", className="fw-bold mb-1 text-muted", style={'fontSize': '0.85rem'}),
+                                dcc.Dropdown(
+                                    id="ml-device-dd",
+                                    options=[
+                                        {"label": "ActiGraph", "value": "ActiGraph"},
+                                        {"label": "EmotiBit", "value": "EmotiBit"},
+                                        {"label": "Bangle.js", "value": "Bangle.js"}
+                                    ],
+                                    value="EmotiBit",
+                                    clearable=False,
+                                    className="mb-1",
+                                    style={'color': '#212529'}
+                                )
+                            ], md=6, className="mb-3 mb-md-0"),
+                            
+                            dbc.Col([
+                                html.Label("Select Model:", className="fw-bold mb-1 text-muted", style={'fontSize': '0.85rem'}),
+                                dcc.Dropdown(
+                                    id="ml-model-dd",
+                                    options=[
+                                        {"label": "Multiple Linear Regression", "value": "Multiple Linear Regression"},
+                                        {"label": "Random Forest", "value": "Random Forest"}
+                                    ],
+                                    value="Random Forest",
+                                    clearable=False,
+                                    className="mb-1",
+                                    style={'color': '#212529'}
+                                )
+                            ], md=6)
+                        ])
+                    ], style={'padding': '20px'})
+                ], className="card", style={
+                    'borderRadius': '10px',
+                    'boxShadow': 'var(--card-shadow)',
+                    'overflow': 'visible', # Allow dropdowns to overflow standard blocks safely
+                    'borderLeft': f'4px solid {COLORS["soot"]}'
+                })
+            ], xs=12, lg=12, className="mb-4")
+        ]),
+        
+        dbc.Row([
+            dbc.Col([
+                dbc.Card(dbc.CardBody(
+                    dcc.Loading(dcc.Graph(id="ml-scatter-plot", config={"displayModeBar": False}, style={'height': '450px'}))
+                ), className="border-0 shadow-sm mb-4 bg-transparent")
+            ], xs=12, lg=12),
+            
+            dbc.Col([
+                dbc.Card(dbc.CardBody(
+                    dcc.Loading(dcc.Graph(id="ml-line-plot", config={"displayModeBar": False}, style={'height': '450px'}))
+                ), className="border-0 shadow-sm mb-4 bg-transparent")
+            ], xs=12, lg=12)
+        ], className="mb-5")
+    ])

@@ -46,4 +46,4 @@ tmp/
 # Secured manual data
 data/
 data_secured.enc
-*archive*
+
