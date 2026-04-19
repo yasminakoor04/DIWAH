@@ -825,6 +825,7 @@ def create_ml_layout() -> html.Div:
         marker_color=COLORS['crocus'],
         text=[f"{val:.2f}" for val in mlr_r2],
         textposition='outside',
+        cliponaxis=False,
         hovertemplate="<b>%{x}</b><br>MLR R²: %{y:.3f}<extra></extra>"
     ))
     fig_r2.add_trace(go.Bar(
@@ -833,6 +834,7 @@ def create_ml_layout() -> html.Div:
         marker_color=COLORS['buttercup'],
         text=[f"{val:.2f}" for val in rf_r2],
         textposition='outside',
+        cliponaxis=False,
         hovertemplate="<b>%{x}</b><br>Random Forest R²: %{y:.3f}<extra></extra>"
     ))
     
@@ -843,7 +845,7 @@ def create_ml_layout() -> html.Div:
         plot_bgcolor='rgba(0,0,0,0)',
         font=dict(color='#888'),
         legend=dict(orientation="h", yanchor="top", y=-0.3, xanchor="center", x=0.5),
-        margin=dict(t=30, b=100, l=40, r=20),
+        margin=dict(t=45, b=100, l=40, r=20),
         yaxis=dict(zeroline=True, zerolinewidth=2, zerolinecolor='rgba(150,150,150,0.5)', gridcolor='rgba(150,150,150,0.1)'),
         hovermode="x unified"
     )
@@ -856,6 +858,7 @@ def create_ml_layout() -> html.Div:
         marker_color=COLORS['crocus'],
         text=[f"{val:.2f}" for val in mlr_mae],
         textposition='outside',
+        cliponaxis=False,
         hovertemplate="<b>%{x}</b><br>MLR MAE: %{y:.3f} METs<extra></extra>"
     ))
     fig_mae.add_trace(go.Bar(
@@ -864,6 +867,7 @@ def create_ml_layout() -> html.Div:
         marker_color=COLORS['buttercup'],
         text=[f"{val:.2f}" for val in rf_mae],
         textposition='outside',
+        cliponaxis=False,
         hovertemplate="<b>%{x}</b><br>Random Forest MAE: %{y:.3f} METs<extra></extra>"
     ))
     
@@ -874,7 +878,7 @@ def create_ml_layout() -> html.Div:
         plot_bgcolor='rgba(0,0,0,0)',
         font=dict(color='#888'),
         legend=dict(orientation="h", yanchor="top", y=-0.3, xanchor="center", x=0.5),
-        margin=dict(t=30, b=100, l=40, r=20),
+        margin=dict(t=45, b=100, l=40, r=20),
         yaxis=dict(gridcolor='rgba(150,150,150,0.1)'),
         hovermode="x unified"
     )
