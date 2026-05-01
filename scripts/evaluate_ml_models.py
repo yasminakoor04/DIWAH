@@ -8,6 +8,12 @@ using the 5-second FLIRT features extracted from ActiGraph, Bangle.js, and Emoti
 This script separates the feature matrix dynamically by device, handles missing values,
 scales features, and evaluates models (Multiple Linear Regression, Random Forest).
 Outputs a formatted table of MAE, RMSE, and R-squared for direct use in the thesis.
+
+Enhanced exports:
+  - ml_metrics.json           — MAE/RMSE/R² per device and model
+  - ml_predictions.csv        — True vs Predicted METs per sample
+  - ml_feature_importance.json — Top-20 RF feature importances per device
+  - ml_intensity_breakdown.json — MAE/RMSE broken down by intensity zone
 """
 
 import sys
@@ -32,6 +38,20 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 _PROJECT_ROOT = _SCRIPT_DIR.parent
 DEFAULT_FEATURE_MATRIX = _SCRIPT_DIR / "Acc_pipe" / "data" / "processed" / "flirt_feature_matrix_ready.csv"
 OUTPUT_DIR = _SCRIPT_DIR / "Acc_pipe" / "data" / "processed"
+
+
+# ---------------------------------------------------------------------------
+# MET-based intensity zones (standard clinical thresholds)
+# ---------------------------------------------------------------------------
+def classify_intensity(mets_value: float) -> str:
+    """Classify a MET value into standard intensity zones."""
+    if mets_value < 3.0:
+        return "Light"
+    elif mets_value < 6.0:
+        return "Moderate"
+    else:
+        return "Vigorous"
+
 
 def load_and_prep_data(csv_path: Path) -> pd.DataFrame:
     """Loads the FLIRT feature matrix and performs basic checks."""
@@ -60,9 +80,11 @@ def get_device_columns(df: pd.DataFrame, device: str) -> list:
     """
     return [col for col in df.columns if col.startswith(f"{device}_")]
 
-def train_and_evaluate(X_train, X_test, y_train, y_test):
+
+def train_and_evaluate(X_train, X_test, y_train, y_test, feature_names=None):
     """
-    Trains MLR and Random Forest, returning a dictionary of metrics.
+    Trains MLR and Random Forest, returning metrics, predictions,
+    and feature importances from the Random Forest.
     """
     metrics = {}
     
@@ -88,13 +110,58 @@ def train_and_evaluate(X_train, X_test, y_train, y_test):
         "R2": r2_score(y_test, rf_preds)
     }
     
-    # Return metrics and predictions payload for the Dashboard
+    # 3. Extract feature importances from Random Forest
+    importance_data = []
+    if feature_names is not None:
+        importances = rf.feature_importances_
+        for name, imp in zip(feature_names, importances):
+            importance_data.append({"feature": name, "importance": float(imp)})
+        # Sort by importance descending
+        importance_data.sort(key=lambda x: x["importance"], reverse=True)
+    
+    # Return metrics, predictions payload, and feature importances
     preds_payload = {
         "MLR": mlr_preds.tolist(),
         "RF": rf_preds.tolist()
     }
     
-    return metrics, preds_payload
+    return metrics, preds_payload, importance_data
+
+
+def compute_intensity_breakdown(y_test, preds_dict):
+    """
+    Compute MAE and RMSE broken down by intensity zone.
+    
+    Args:
+        y_test: array of true MET values
+        preds_dict: dict with model_name -> predictions array
+    
+    Returns:
+        dict of {model_name: {zone: {MAE, RMSE, N}}}
+    """
+    zones = [classify_intensity(m) for m in y_test]
+    zone_labels = ["Light", "Moderate", "Vigorous"]
+    
+    breakdown = {}
+    for model_name, preds in preds_dict.items():
+        breakdown[model_name] = {}
+        for zone in zone_labels:
+            mask = [z == zone for z in zones]
+            y_zone = y_test[mask]
+            p_zone = np.array(preds)[mask]
+            
+            if len(y_zone) == 0:
+                breakdown[model_name][zone] = {"MAE": None, "RMSE": None, "N": 0}
+                continue
+                
+            breakdown[model_name][zone] = {
+                "MAE": float(mean_absolute_error(y_zone, p_zone)),
+                "RMSE": float(np.sqrt(mean_squared_error(y_zone, p_zone))),
+                "N": int(len(y_zone))
+            }
+    
+    return breakdown
+
 
 def print_beautiful_summary(results: dict):
     """
@@ -106,14 +173,18 @@ def print_beautiful_summary(results: dict):
     print(f"{'Device Scenario':<15} | {'Model':<25} | {'MAE':<10} | {'RMSE':<10} | {'R-squared (R²)':<12}")
     print("-" * 80)
     
-    devices = ["ActiGraph", "EmotiBit", "Bangle"]
+    devices = ["ActiGraph", "EmotiBit", "Bangle", "Fused"]
     
     for device in devices:
         res = results.get(device.lower())
         if not res:
             continue
             
-        print(f"{device:<15} | {'Multiple Linear Regression':<25} | "
+        label = device
+        if device == "Fused":
+            label = "Sensor Fusion"
+            
+        print(f"{label:<15} | {'Multiple Linear Regression':<25} | "
               f"{res['MLR']['MAE']:<10.3f} | {res['MLR']['RMSE']:<10.3f} | {res['MLR']['R2']:<10.3f}")
         print(f"{'':<15} | {'Random Forest Regressor':<25} | "
               f"{res['RF']['MAE']:<10.3f} | {res['RF']['RMSE']:<10.3f} | {res['RF']['R2']:<10.3f}")
@@ -122,6 +193,7 @@ def print_beautiful_summary(results: dict):
     print("="*80)
     print("Note: MAE (Mean Absolute Error) and RMSE (Root Mean Square Error) are in METs.")
     print("      R² closer to 1.0 indicates better explained variance.\n")
+
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate ML models against METs ground truth.")
@@ -135,9 +207,13 @@ def main():
     
     print(f"Total valid samples: {len(df)}")
     
+    # ── Per-device evaluation ──────────────────────────────────────────────
     devices = ["actigraph", "emotibit", "bangle"]
     results = {}
     all_predictions = []
+    all_feature_importances = {}
+    all_intensity_breakdowns = {}
+    all_device_features = {}  # Collect for fusion
     
     for device in devices:
         print(f"\nProcessing {device.capitalize()}...")
@@ -154,8 +230,10 @@ def main():
         # Replace Any Infinities with NaNs so the Imputer can handle them.
         X = X.replace([np.inf, -np.inf], np.nan)
         
-        # 2. Impute NaNs (Forward fill was used earlier, but 
-        # FLIRT might return NaN/Inf if a window was mostly empty).
+        # Store for fusion later
+        all_device_features[device] = X
+        
+        # 2. Impute NaNs
         imputer = SimpleImputer(strategy='median')
         X_imputed = imputer.fit_transform(X)
         
@@ -173,9 +251,21 @@ def main():
         
         # 5. Train & Evaluate
         print("  Training MLR and Random Forest models...")
-        metrics, preds_payload = train_and_evaluate(X_train_scaled, X_test_scaled, y_train, y_test)
+        metrics, preds_payload, importance_data = train_and_evaluate(
+            X_train_scaled, X_test_scaled, y_train, y_test, feature_names=features
+        )
         
         results[device] = metrics
+        
+        # Store feature importances (top 20)
+        all_feature_importances[device] = importance_data[:20]
+        
+        # Compute intensity breakdown
+        intensity_bd = compute_intensity_breakdown(
+            y_test,
+            {"MLR": preds_payload["MLR"], "RF": preds_payload["RF"]}
+        )
+        all_intensity_breakdowns[device] = intensity_bd
         
         # Accumulate predictions for Dashboard Interactive Scatter Plot
         for model_name, preds_arr in preds_payload.items():
@@ -189,17 +279,79 @@ def main():
                     "Pred_METs": p_val
                 })
         
-    # 6. Output Table and Export
+    # ── Sensor Fusion model (all devices combined) ─────────────────────────
+    if len(all_device_features) == 3:
+        print(f"\nProcessing Sensor Fusion (all devices combined)...")
+        
+        X_fused = pd.concat(list(all_device_features.values()), axis=1)
+        fused_features = list(X_fused.columns)
+        X_fused = X_fused.replace([np.inf, -np.inf], np.nan)
+        
+        print(f"  Combined {len(fused_features)} features from all devices.")
+        
+        imputer = SimpleImputer(strategy='median')
+        X_fused_imputed = imputer.fit_transform(X_fused)
+        
+        X_train, X_test, y_train, y_test = train_test_split(
+            X_fused_imputed, y, test_size=0.20, random_state=42
+        )
+        print(f"  Training set: {X_train.shape[0]} windows. Testing set: {X_test.shape[0]} windows.")
+        
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+        
+        print("  Training MLR and Random Forest models...")
+        metrics, preds_payload, importance_data = train_and_evaluate(
+            X_train_scaled, X_test_scaled, y_train, y_test, feature_names=fused_features
+        )
+        
+        results["fused"] = metrics
+        all_feature_importances["fused"] = importance_data[:20]
+        
+        # Intensity breakdown for fused
+        intensity_bd = compute_intensity_breakdown(
+            y_test,
+            {"MLR": preds_payload["MLR"], "RF": preds_payload["RF"]}
+        )
+        all_intensity_breakdowns["fused"] = intensity_bd
+        
+        # Add predictions
+        for model_name, preds_arr in preds_payload.items():
+            model_label = "Multiple Linear Regression" if model_name == "MLR" else "Random Forest"
+            for t_val, p_val in zip(y_test, preds_arr):
+                all_predictions.append({
+                    "Device": "Sensor Fusion",
+                    "Model": model_label,
+                    "True_METs": t_val,
+                    "Pred_METs": p_val
+                })
+    
+    # ── Output ─────────────────────────────────────────────────────────────
     print_beautiful_summary(results)
     
-    # Save payloads for the Dashboard UI
+    # Save all payloads for the Dashboard UI
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    
+    # 1. Core metrics
     with open(OUTPUT_DIR / "ml_metrics.json", "w") as f:
         json.dump(results, f, indent=4)
         
+    # 2. Predictions CSV
     pd.DataFrame(all_predictions).to_csv(OUTPUT_DIR / "ml_predictions.csv", index=False)
-    print(f"\n[SUCCESS] Exported real cross-validation metrics to {OUTPUT_DIR}\\ml_metrics.json")
-    print(f"[SUCCESS] Exported real prediction matrix. to {OUTPUT_DIR}\\ml_predictions.csv for Dashboard Scatter Plot!")
+    
+    # 3. Feature importances
+    with open(OUTPUT_DIR / "ml_feature_importance.json", "w") as f:
+        json.dump(all_feature_importances, f, indent=4)
+    
+    # 4. Intensity breakdown
+    with open(OUTPUT_DIR / "ml_intensity_breakdown.json", "w") as f:
+        json.dump(all_intensity_breakdowns, f, indent=4)
+    
+    print(f"\n[SUCCESS] Exported metrics to {OUTPUT_DIR}\\ml_metrics.json")
+    print(f"[SUCCESS] Exported predictions to {OUTPUT_DIR}\\ml_predictions.csv")
+    print(f"[SUCCESS] Exported feature importances to {OUTPUT_DIR}\\ml_feature_importance.json")
+    print(f"[SUCCESS] Exported intensity breakdown to {OUTPUT_DIR}\\ml_intensity_breakdown.json")
 
 if __name__ == "__main__":
     main()
