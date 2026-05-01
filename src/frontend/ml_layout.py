@@ -57,7 +57,10 @@ def _load_metrics() -> dict:
     return metrics_data
 
 
-def _make_grouped_bar(devices, mlr_vals, rf_vals, y_title, mlr_hover, rf_hover):
+def _make_grouped_bar(devices, mlr_vals, rf_vals, y_title, mlr_hover, rf_hover, is_dark=False):
+    template = "plotly_dark" if is_dark else "plotly_white"
+    hover_bg = "#333" if is_dark else "white"
+    hover_font = "#eee" if is_dark else "#222"
     """Helper to create a grouped bar chart (MAE, RMSE, or R²)."""
     fig = go.Figure()
     fig.add_trace(go.Bar(
@@ -74,6 +77,8 @@ def _make_grouped_bar(devices, mlr_vals, rf_vals, y_title, mlr_hover, rf_hover):
     ))
     fig.update_layout(
         yaxis_title=y_title, barmode='group',
+        template=template,
+        hoverlabel=dict(bgcolor=hover_bg, font_color=hover_font),
         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
         font=dict(color='#888'),
         legend=dict(orientation="h", yanchor="top", y=-0.3, xanchor="center", x=0.5),
@@ -84,7 +89,10 @@ def _make_grouped_bar(devices, mlr_vals, rf_vals, y_title, mlr_hover, rf_hover):
     return fig
 
 
-def _make_intensity_chart():
+def _make_intensity_chart(is_dark=False):
+    template = "plotly_dark" if is_dark else "plotly_white"
+    hover_bg = "#333" if is_dark else "white"
+    hover_font = "#eee" if is_dark else "#222"
     """Build a grouped bar chart of MAE by intensity zone per device (RF only)."""
     data = _load_json("ml_intensity_breakdown.json")
     if not data:
@@ -116,6 +124,8 @@ def _make_intensity_chart():
 
     fig.update_layout(
         yaxis_title="MAE (METs)", barmode='group',
+        template=template,
+        hoverlabel=dict(bgcolor=hover_bg, font_color=hover_font),
         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
         font=dict(color='#888'),
         legend=dict(orientation="h", yanchor="top", y=-0.3, xanchor="center", x=0.5),
@@ -141,7 +151,7 @@ def _make_feature_importance_chart():
     return device_dd_options
 
 
-def create_ml_layout() -> html.Div:
+def create_ml_layout(is_dark=False) -> html.Div:
     """
     Renders the enhanced Machine Learning Dashboard with:
     - MAE / RMSE / R² bar charts
@@ -161,22 +171,22 @@ def create_ml_layout() -> html.Div:
 
     fig_mae = _make_grouped_bar(devices, mlr_mae, rf_mae, "Mean Absolute Error (METs)",
                                 "<b>%{x}</b><br>MLR MAE: %{y:.3f} METs<extra></extra>",
-                                "<b>%{x}</b><br>RF MAE: %{y:.3f} METs<extra></extra>")
+                                "<b>%{x}</b><br>RF MAE: %{y:.3f} METs<extra></extra>", is_dark=is_dark)
 
     fig_rmse = _make_grouped_bar(devices, mlr_rmse, rf_rmse, "Root Mean Squared Error (METs)",
                                  "<b>%{x}</b><br>MLR RMSE: %{y:.3f} METs<extra></extra>",
-                                 "<b>%{x}</b><br>RF RMSE: %{y:.3f} METs<extra></extra>")
+                                 "<b>%{x}</b><br>RF RMSE: %{y:.3f} METs<extra></extra>", is_dark=is_dark)
 
     # R² chart with a zero-line
     fig_r2 = _make_grouped_bar(devices, mlr_r2, rf_r2, "R-squared (R²)",
                                "<b>%{x}</b><br>MLR R²: %{y:.3f}<extra></extra>",
-                               "<b>%{x}</b><br>RF R²: %{y:.3f}<extra></extra>")
+                               "<b>%{x}</b><br>RF R²: %{y:.3f}<extra></extra>", is_dark=is_dark)
     fig_r2.add_hline(y=0, line_dash="dash", line_color="rgba(255,255,255,0.3)",
                      annotation_text="Baseline (R²=0)", annotation_position="bottom right",
                      annotation_font_color="#888")
 
     # Intensity breakdown chart
-    fig_intensity = _make_intensity_chart()
+    fig_intensity = _make_intensity_chart(is_dark=is_dark)
 
     # Feature importance dropdown options
     fi_options = _make_feature_importance_chart() or []
