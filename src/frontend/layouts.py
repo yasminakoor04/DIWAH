@@ -748,4 +748,6 @@ def create_about_layout() -> html.Div:
             ])
         ], className="mb-5 shadow-sm dashboard-card", style={'borderLeft': f'4px solid {COLORS["ivy"]}'})
 
+    ], className="p-4")
+
 from .ml_layout import create_ml_layout  # noqa: F401
