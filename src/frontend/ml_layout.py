@@ -326,28 +326,28 @@ def create_ml_layout(is_dark=False) -> html.Div:
         # Scatter + Residual row
         dbc.Row([
             dbc.Col([
-                dbc.Card(dbc.CardBody(
+                html.Div([
                     dcc.Loading(dcc.Graph(id="ml-scatter-plot", config={"displayModeBar": False}, style={'height': '450px'}))
-                ), className="border-0 shadow-sm mb-4 bg-transparent")
+                ], className="card mb-4", style={'borderRadius': '10px', 'boxShadow': 'var(--card-shadow)', 'overflow': 'hidden', 'padding': '10px'})
             ], xs=12, lg=6),
             dbc.Col([
-                dbc.Card(dbc.CardBody(
+                html.Div([
                     dcc.Loading(dcc.Graph(id="ml-residual-plot", config={"displayModeBar": False}, style={'height': '450px'}))
-                ), className="border-0 shadow-sm mb-4 bg-transparent")
+                ], className="card mb-4", style={'borderRadius': '10px', 'boxShadow': 'var(--card-shadow)', 'overflow': 'hidden', 'padding': '10px'})
             ], xs=12, lg=6),
         ]),
 
         # Bland-Altman + Line chart row
         dbc.Row([
             dbc.Col([
-                dbc.Card(dbc.CardBody(
+                html.Div([
                     dcc.Loading(dcc.Graph(id="ml-bland-altman-plot", config={"displayModeBar": False}, style={'height': '450px'}))
-                ), className="border-0 shadow-sm mb-4 bg-transparent")
+                ], className="card mb-4", style={'borderRadius': '10px', 'boxShadow': 'var(--card-shadow)', 'overflow': 'hidden', 'padding': '10px'})
             ], xs=12, lg=6),
             dbc.Col([
-                dbc.Card(dbc.CardBody(
+                html.Div([
                     dcc.Loading(dcc.Graph(id="ml-line-plot", config={"displayModeBar": False}, style={'height': '450px'}))
-                ), className="border-0 shadow-sm mb-4 bg-transparent")
+                ], className="card mb-4", style={'borderRadius': '10px', 'boxShadow': 'var(--card-shadow)', 'overflow': 'hidden', 'padding': '10px'})
             ], xs=12, lg=6),
         ], className="mb-5"),
     ]
