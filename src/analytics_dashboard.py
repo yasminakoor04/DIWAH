@@ -638,13 +638,9 @@ import json as _json
 import numpy as _np
 
 _data_dir = Path(__file__).resolve().parents[1] / "scripts" / "Acc_pipe" / "data" / "processed"
-_csv_path = _data_dir / "ml_predictions.csv"
 _fi_path = _data_dir / "ml_feature_importance.json"
 
-if _csv_path.exists():
-    ml_df = pd.read_csv(_csv_path)
-else:
-    ml_df = pd.DataFrame(columns=["Device", "Model", "True_METs", "Pred_METs"])
+# Note: ML Predictions are now loaded dynamically from InfluxDB inside the callback!
 
 _fi_data = {}
 if _fi_path.exists():
@@ -707,14 +703,38 @@ def update_feature_importance(device_key, is_dark):
 )
 def update_ml_plots(selected_device, selected_model, is_dark):
     template = "plotly_dark" if is_dark else "plotly_white"
-    filtered_df = ml_df[(ml_df["Device"] == selected_device) & (ml_df["Model"] == selected_model)]
+    
+    # Fetch from InfluxDB
+    try:
+        query_api = get_query_api()
+        flux_query = f'''
+        from(bucket: "{INFLUX_BUCKET}")
+            |> range(start: 0)
+            |> filter(fn: (r) => r["_measurement"] == "ml_predictions")
+            |> filter(fn: (r) => r["Device"] == "{selected_device}")
+            |> filter(fn: (r) => r["Model"] == "{selected_model}")
+            |> pivot(rowKey:["_time", "subject"], columnKey: ["_field"], valueColumn: "_value")
+        '''
+        filtered_df = query_api.query_data_frame(flux_query)
+        if isinstance(filtered_df, list):
+            filtered_df = pd.concat(filtered_df, ignore_index=True) if filtered_df else pd.DataFrame()
+            
+        if filtered_df is None or filtered_df.empty:
+            true_vals = np.array([])
+            pred_vals = np.array([])
+            filtered_df = pd.DataFrame(columns=["True_METs", "Pred_METs"])
+        else:
+            true_vals = filtered_df["True_METs"].values
+            pred_vals = filtered_df["Pred_METs"].values
+    except Exception as e:
+        print(f"Error querying ml_predictions from InfluxDB: {e}")
+        true_vals = np.array([])
+        pred_vals = np.array([])
+        filtered_df = pd.DataFrame(columns=["True_METs", "Pred_METs"])
 
     grid_color = 'rgba(255,255,255,0.1)' if is_dark else 'rgba(0,0,0,0.1)'
     axis_color = 'rgba(255,255,255,0.5)' if is_dark else 'black'
     y_range = [-10, 45] if (selected_model == "Multiple Linear Regression" and selected_device not in ["ActiGraph", "Sensor Fusion"]) else [0, 20]
-
-    true_vals = filtered_df["True_METs"].values
-    pred_vals = filtered_df["Pred_METs"].values
 
     # --- 1. Scatter Plot (y=x) ---
     scatter_fig = go.Figure()
