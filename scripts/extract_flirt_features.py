@@ -535,7 +535,7 @@ def main():
                         help="Process each subject independently and stack results")
     args = parser.parse_args()
 
-    if args.all_subjects:
+    if args.all_subjects or args.subject is None:
         # Load the full file once just to get subject list
         all_df = pd.read_csv(args.input, low_memory=False)
         sub_col = "subject_id" if "subject_id" in all_df.columns else "subject"
