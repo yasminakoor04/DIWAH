@@ -70,11 +70,15 @@ def load_and_prepare(trimmed_csv: Path, untrimmed_csv: Path) -> pd.DataFrame:
 
     trimmed_good = trimmed[~trimmed["subject"].isin(BAD_SUBJECTS)].copy()
 
-    untrimmed = pd.read_csv(untrimmed_csv)
-    untrimmed = ensure_subject_column(untrimmed)
-    untrimmed = ensure_timestamp_column(untrimmed)
+    if untrimmed_csv.exists():
+        untrimmed = pd.read_csv(untrimmed_csv)
+        untrimmed = ensure_subject_column(untrimmed)
+        untrimmed = ensure_timestamp_column(untrimmed)
+        unified = pd.concat([trimmed_good, untrimmed], ignore_index=True, sort=False)
+    else:
+        print(f"[WARNING] Untrimmed CSV not found at {untrimmed_csv}. Proceeding with trimmed data only.")
+        unified = trimmed_good
 
-    unified = pd.concat([trimmed_good, untrimmed], ignore_index=True, sort=False)
     unified = unified.dropna(subset=["subject", "timestamp"])
     return unified
 
