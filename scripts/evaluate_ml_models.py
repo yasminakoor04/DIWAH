@@ -29,7 +29,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import Ridge
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import json
@@ -101,8 +101,9 @@ def train_and_evaluate(X_train, X_test, y_train, y_test, feature_names=None):
     """
     metrics = {}
     
-    # 1. Multiple Linear Regression (Baseline)
-    mlr = LinearRegression()
+    # 1. Regularized Linear Regression (Ridge, alpha=1.0)
+    # Ridge prevents coefficient explosion when n_features ≈ n_samples
+    mlr = Ridge(alpha=1.0)
     mlr.fit(X_train, y_train)
     mlr_preds = mlr.predict(X_test)
     
