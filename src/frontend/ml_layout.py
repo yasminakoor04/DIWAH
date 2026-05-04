@@ -65,7 +65,7 @@ def _make_grouped_bar(devices, mlr_vals, rf_vals, y_title, mlr_hover, rf_hover, 
     fig = go.Figure()
     fig.add_trace(go.Bar(
         x=devices, y=mlr_vals,
-        name='Linear Regression', marker_color=COLORS['crocus'],
+        name='Ridge Regression', marker_color=COLORS['crocus'],
         text=[f"{v:.2f}" for v in mlr_vals], textposition='outside', cliponaxis=False,
         hovertemplate=mlr_hover
     ))
@@ -170,16 +170,16 @@ def create_ml_layout(is_dark=False) -> html.Div:
     rf_r2 = [metrics_data[d]['RF_R2'] for d in devices]
 
     fig_mae = _make_grouped_bar(devices, mlr_mae, rf_mae, "Mean Absolute Error (METs)",
-                                "<b>%{x}</b><br>MLR MAE: %{y:.3f} METs<extra></extra>",
+                                "<b>%{x}</b><br>Ridge MAE: %{y:.3f} METs<extra></extra>",
                                 "<b>%{x}</b><br>RF MAE: %{y:.3f} METs<extra></extra>", is_dark=is_dark)
 
     fig_rmse = _make_grouped_bar(devices, mlr_rmse, rf_rmse, "Root Mean Squared Error (METs)",
-                                 "<b>%{x}</b><br>MLR RMSE: %{y:.3f} METs<extra></extra>",
+                                 "<b>%{x}</b><br>Ridge RMSE: %{y:.3f} METs<extra></extra>",
                                  "<b>%{x}</b><br>RF RMSE: %{y:.3f} METs<extra></extra>", is_dark=is_dark)
 
     # R² chart with a zero-line
     fig_r2 = _make_grouped_bar(devices, mlr_r2, rf_r2, "R-squared (R²)",
-                               "<b>%{x}</b><br>MLR R²: %{y:.3f}<extra></extra>",
+                               "<b>%{x}</b><br>Ridge R²: %{y:.3f}<extra></extra>",
                                "<b>%{x}</b><br>RF R²: %{y:.3f}<extra></extra>", is_dark=is_dark)
     fig_r2.add_hline(y=0, line_dash="dash", line_color="rgba(255,255,255,0.3)",
                      annotation_text="Baseline (R²=0)", annotation_position="bottom right",
@@ -310,7 +310,7 @@ def create_ml_layout(is_dark=False) -> html.Div:
                             dbc.Col([
                                 html.Label("Select Model:", className="fw-bold mb-1 text-muted", style={'fontSize': '0.85rem'}),
                                 dcc.Dropdown(id="ml-model-dd", options=[
-                                    {"label": "Multiple Linear Regression", "value": "Multiple Linear Regression"},
+                                    {"label": "Ridge Regression", "value": "Multiple Linear Regression"},
                                     {"label": "Random Forest", "value": "Random Forest"}
                                 ], value="Random Forest", clearable=False, style={'color': '#212529'})
                             ], md=6)
