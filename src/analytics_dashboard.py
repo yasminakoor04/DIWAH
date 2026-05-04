@@ -339,7 +339,7 @@ def render_tab(tab, sub1, sub2, is_dark_mode, ex1, ex2):
 
     if tab == 'tab-ml':
         from src.frontend.layouts import create_ml_layout
-        return create_ml_layout()
+        return create_ml_layout(is_dark=is_dark_mode)
                 
     # The remaining tabs require subject and session
     if not sub or not sess:
@@ -679,8 +679,12 @@ def update_feature_importance(device_key, is_dark):
         hovertemplate="<b>%{y}</b><br>Importance: %{x:.4f}<extra></extra>"
     ))
 
+    hover_bg = "#333" if is_dark else "white"
+    hover_font = "#eee" if is_dark else "#222"
+
     fig.update_layout(
         template=template,
+        hoverlabel=dict(bgcolor=hover_bg, font_color=hover_font),
         xaxis_title="Gini Importance",
         yaxis=dict(tickfont=dict(size=10)),
         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
@@ -703,6 +707,8 @@ def update_feature_importance(device_key, is_dark):
 )
 def update_ml_plots(selected_device, selected_model, is_dark):
     template = "plotly_dark" if is_dark else "plotly_white"
+    hover_bg = "#333" if is_dark else "white"
+    hover_font = "#eee" if is_dark else "#222"
     
     # Fetch from InfluxDB
     try:
@@ -753,7 +759,9 @@ def update_ml_plots(selected_device, selected_model, is_dark):
         xaxis_title="True METs", yaxis_title="Predicted METs",
         xaxis=dict(range=[0, 15], zeroline=False, gridcolor=grid_color),
         yaxis=dict(range=y_range, zeroline=True, zerolinewidth=1, zerolinecolor=axis_color, gridcolor=grid_color),
-        template=template, margin=dict(t=60, b=50, l=50, r=30),
+        template=template,
+        hoverlabel=dict(bgcolor=hover_bg, font_color=hover_font),
+        margin=dict(t=60, b=50, l=50, r=30),
         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
         legend=dict(x=0.01, y=0.98, bgcolor="rgba(0,0,0,0)"), hovermode="closest", height=450
     )
@@ -779,7 +787,9 @@ def update_ml_plots(selected_device, selected_model, is_dark):
         xaxis_title="True METs", yaxis_title="Prediction Error (METs)",
         xaxis=dict(range=[0, 16], gridcolor=grid_color),
         yaxis=dict(gridcolor=grid_color, zeroline=True, zerolinecolor=axis_color),
-        template=template, margin=dict(t=60, b=50, l=50, r=30),
+        template=template,
+        hoverlabel=dict(bgcolor=hover_bg, font_color=hover_font),
+        margin=dict(t=60, b=50, l=50, r=30),
         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
         showlegend=False, hovermode="closest", height=450
     )
@@ -818,11 +828,13 @@ def update_ml_plots(selected_device, selected_model, is_dark):
     pct_within = within / total * 100
 
     ba_fig.update_layout(
-        title={"text": f"Bland-Altman: {selected_device} ({pct_within:.0f}% within LOA)", "font": {"size": 16}},
+        title={"text": f"Bland-Altman: {selected_device} ({pct_within:.0f}% in LOA)", "font": {"size": 14}},
         xaxis_title="Mean of True & Predicted (METs)", yaxis_title="Difference (Pred - True)",
         xaxis=dict(gridcolor=grid_color),
         yaxis=dict(gridcolor=grid_color, zeroline=True, zerolinecolor=axis_color),
-        template=template, margin=dict(t=60, b=50, l=50, r=30),
+        template=template,
+        hoverlabel=dict(bgcolor=hover_bg, font_color=hover_font),
+        margin=dict(t=60, b=50, l=50, r=30),
         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
         showlegend=False, hovermode="closest", height=450
     )
@@ -846,7 +858,9 @@ def update_ml_plots(selected_device, selected_model, is_dark):
         xaxis_title="Activity Spectrum (Rest → Peak)", yaxis_title="Energy (METs)",
         xaxis=dict(zeroline=False, gridcolor=grid_color),
         yaxis=dict(range=y_range, zeroline=True, zerolinewidth=1, zerolinecolor=axis_color, gridcolor=grid_color),
-        template=template, margin=dict(t=60, b=50, l=50, r=30),
+        template=template,
+        hoverlabel=dict(bgcolor=hover_bg, font_color=hover_font),
+        margin=dict(t=60, b=50, l=50, r=30),
         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, bgcolor="rgba(0,0,0,0)"),
         hovermode="x unified", height=450
