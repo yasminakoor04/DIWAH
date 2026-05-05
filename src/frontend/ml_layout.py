@@ -30,18 +30,17 @@ def _load_json(filename: str):
 def _load_metrics() -> dict:
     """Load ML metrics, falling back to hardcoded defaults."""
     metrics_data = {
-        'ActiGraph (Clinical)': {'MLR_MAE': 4.308, 'MLR_R2': -1.228, 'MLR_RMSE': 5.749, 'RF_MAE': 2.066, 'RF_R2': 0.518, 'RF_RMSE': 2.673},
-        'EmotiBit (Consumer)': {'MLR_MAE': 7.288, 'MLR_R2': -7.325, 'MLR_RMSE': 11.113, 'RF_MAE': 2.033, 'RF_R2': 0.627, 'RF_RMSE': 2.352},
-        'Bangle.js (Consumer)': {'MLR_MAE': 23.183, 'MLR_R2': -25.000, 'MLR_RMSE': 57.201, 'RF_MAE': 1.995, 'RF_R2': 0.561, 'RF_RMSE': 2.513},
+        'Reference (ActiGraph + Polar HR)': {'MLR_MAE': 2.92, 'MLR_R2': 0.025, 'MLR_RMSE': 3.80, 'RF_MAE': 2.07, 'RF_R2': 0.52, 'RF_RMSE': 2.67},
+        'EmotiBit (Open-Source)': {'MLR_MAE': 2.45, 'MLR_R2': 0.28, 'MLR_RMSE': 3.27, 'RF_MAE': 2.03, 'RF_R2': 0.63, 'RF_RMSE': 2.35},
+        'Bangle.js (Open-Source)': {'MLR_MAE': 3.14, 'MLR_R2': -0.97, 'MLR_RMSE': 5.40, 'RF_MAE': 1.97, 'RF_R2': 0.57, 'RF_RMSE': 2.51},
     }
 
     real_res = _load_json("ml_metrics.json")
     if real_res:
         device_map = {
-            'actigraph': 'ActiGraph (Clinical)',
-            'emotibit': 'EmotiBit (Consumer)',
-            'bangle': 'Bangle.js (Consumer)',
-            'fused': 'Sensor Fusion',
+            'reference': 'Reference (ActiGraph + Polar HR)',
+            'emotibit': 'EmotiBit (Open-Source)',
+            'bangle': 'Bangle.js (Open-Source)',
         }
         for key, label in device_map.items():
             if key in real_res:
@@ -101,7 +100,7 @@ def _make_intensity_chart(is_dark=False):
     zone_labels = ["Light", "Moderate", "Vigorous"]
     zone_colors = [COLORS['ivy'], COLORS['buttercup'], COLORS['azalea']]
 
-    device_map = {'actigraph': 'ActiGraph', 'emotibit': 'EmotiBit', 'bangle': 'Bangle.js', 'fused': 'Fusion'}
+    device_map = {'reference': 'Reference', 'emotibit': 'EmotiBit', 'bangle': 'Bangle.js'}
     devices_present = [k for k in device_map if k in data]
 
     fig = go.Figure()
@@ -143,7 +142,7 @@ def _make_feature_importance_chart():
         return None
 
     device_dd_options = []
-    device_map = {'actigraph': 'ActiGraph', 'emotibit': 'EmotiBit', 'bangle': 'Bangle.js', 'fused': 'Sensor Fusion'}
+    device_map = {'reference': 'Reference', 'emotibit': 'EmotiBit', 'bangle': 'Bangle.js'}
     for key, label in device_map.items():
         if key in data and data[key]:
             device_dd_options.append({"label": label, "value": key})
@@ -194,10 +193,9 @@ def create_ml_layout(is_dark=False) -> html.Div:
 
     # Scatter plot device options (include Sensor Fusion)
     scatter_device_options = [
-        {"label": "ActiGraph", "value": "ActiGraph"},
-        {"label": "EmotiBit", "value": "EmotiBit"},
-        {"label": "Bangle.js", "value": "Bangle.js"},
-        {"label": "Sensor Fusion", "value": "Sensor Fusion"},
+        {"label": "Reference (ActiGraph + Polar HR)", "value": "Reference (ActiGraph + Polar HR)"},
+        {"label": "EmotiBit (Open-Source)", "value": "EmotiBit (Open-Source)"},
+        {"label": "Bangle.js (Open-Source)", "value": "Bangle.js (Open-Source)"},
     ]
 
     def _card(title, graph, border_color=COLORS['buttercup']):
@@ -216,7 +214,8 @@ def create_ml_layout(is_dark=False) -> html.Div:
         html.Div([
             html.H3("Machine Learning Evaluation",
                      style={'margin': 0, 'fontWeight': '600', 'color': COLORS['soot']}),
-            html.P("Predicting Energy Expenditure (METs) — Individual Devices vs. Sensor Fusion",
+            html.P("Comparing open-source wearables (EmotiBit, Bangle.js) against a clinical reference "
+                    "(ActiGraph + Polar HR) for exercise intensity prediction.",
                     style={'margin': '5px 0 0 0', 'fontSize': '0.95rem', 'color': COLORS['soot']})
         ], style={
             'background': f"linear-gradient(135deg, {COLORS['buttercup']} 0%, {COLORS['lily']} 100%)",
@@ -225,8 +224,8 @@ def create_ml_layout(is_dark=False) -> html.Div:
         }),
 
         html.P("Random Forest algorithms successfully map non-linear biological movement artifacts, "
-               "reducing the Mean Absolute Error to ~2 METs across both clinical and consumer devices. "
-               "Sensor Fusion (combining all devices) achieves the best overall performance.",
+               "reducing the Mean Absolute Error to ~2 METs across both clinical and open-source devices. "
+               "The Reference scenario (ActiGraph + Polar HR) establishes the clinical upper bound.",
                className="text-muted", style={'fontSize': '1.05rem', 'marginBottom': '25px'}),
 
         # === ROW 1: MAE + RMSE ===
@@ -305,7 +304,7 @@ def create_ml_layout(is_dark=False) -> html.Div:
                             dbc.Col([
                                 html.Label("Select Device:", className="fw-bold mb-1 text-muted", style={'fontSize': '0.85rem'}),
                                 dcc.Dropdown(id="ml-device-dd", options=scatter_device_options,
-                                             value="EmotiBit", clearable=False, style={'color': '#212529'})
+                                             value="EmotiBit (Open-Source)", clearable=False, style={'color': '#212529'})
                             ], md=6, className="mb-3 mb-md-0"),
                             dbc.Col([
                                 html.Label("Select Model:", className="fw-bold mb-1 text-muted", style={'fontSize': '0.85rem'}),

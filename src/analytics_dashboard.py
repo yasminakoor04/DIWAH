@@ -7,6 +7,7 @@ This is the main entry point that ties together all dashboard components.
 
 import logging
 import os
+from pathlib import Path
 from typing import Dict, Any, Optional, List, Tuple
 
 import pandas as pd
@@ -710,37 +711,30 @@ def update_ml_plots(selected_device, selected_model, is_dark):
     hover_bg = "#333" if is_dark else "white"
     hover_font = "#eee" if is_dark else "#222"
     
-    # Fetch from InfluxDB
+    # Read from local ml_predictions.csv (always up-to-date with latest evaluation run)
     try:
-        query_api = get_query_api()
-        flux_query = f'''
-        from(bucket: "{INFLUX_BUCKET}")
-            |> range(start: 0)
-            |> filter(fn: (r) => r["_measurement"] == "ml_predictions")
-            |> filter(fn: (r) => r["Device"] == "{selected_device}")
-            |> filter(fn: (r) => r["Model"] == "{selected_model}")
-            |> pivot(rowKey:["_time", "subject"], columnKey: ["_field"], valueColumn: "_value")
-        '''
-        filtered_df = query_api.query_data_frame(flux_query)
-        if isinstance(filtered_df, list):
-            filtered_df = pd.concat(filtered_df, ignore_index=True) if filtered_df else pd.DataFrame()
-            
-        if filtered_df is None or filtered_df.empty:
+        predictions_csv = Path(__file__).resolve().parent.parent / "scripts" / "Acc_pipe" / "data" / "processed" / "ml_predictions.csv"
+        all_preds = pd.read_csv(predictions_csv)
+        filtered_df = all_preds[
+            (all_preds["Device"] == selected_device) &
+            (all_preds["Model"] == selected_model)
+        ].copy()
+        
+        if filtered_df.empty:
             true_vals = np.array([])
             pred_vals = np.array([])
-            filtered_df = pd.DataFrame(columns=["True_METs", "Pred_METs"])
         else:
             true_vals = filtered_df["True_METs"].values
             pred_vals = filtered_df["Pred_METs"].values
     except Exception as e:
-        print(f"Error querying ml_predictions from InfluxDB: {e}")
+        print(f"Error loading ml_predictions.csv: {e}")
         true_vals = np.array([])
         pred_vals = np.array([])
         filtered_df = pd.DataFrame(columns=["True_METs", "Pred_METs"])
 
     grid_color = 'rgba(255,255,255,0.1)' if is_dark else 'rgba(0,0,0,0.1)'
     axis_color = 'rgba(255,255,255,0.5)' if is_dark else 'black'
-    y_range = [-10, 45] if (selected_model == "Multiple Linear Regression" and selected_device not in ["ActiGraph", "Sensor Fusion"]) else [0, 20]
+    y_range = [-10, 45] if (selected_model == "Multiple Linear Regression" and selected_device == "Reference (ActiGraph + Polar HR)") else [0, 20]
 
     # --- 1. Scatter Plot (y=x) ---
     scatter_fig = go.Figure()

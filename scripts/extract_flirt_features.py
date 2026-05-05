@@ -308,18 +308,21 @@ def extract_vm_stat_features(df: pd.DataFrame, device: str) -> Optional[pd.DataF
 
 
 # ===========================================================================
-# Step 3 — FLIRT heart-rate variability features
+# Step 3 — Polar HR statistical features (for Reference scenario)
 # ===========================================================================
 
-def extract_hrv_features(df: pd.DataFrame) -> Optional[pd.DataFrame]:
+def extract_hr_stat_features(df: pd.DataFrame) -> Optional[pd.DataFrame]:
     """
-    Run flirt.get_hrv_features() on the Polar HR signal.
+    Run flirt.get_stat_features() on the Polar chest-strap heart rate column.
 
-    Note: the HRV module expects inter-beat intervals (IBI) in seconds or
-    beat-per-minute (BPM) values with a DatetimeIndex.  FLIRT auto-detects
-    the unit.  The 'td' domain gives time-domain HRV (RMSSD, SDNN, pNN50…),
-    'fd' gives frequency-domain (LF, HF, LF/HF ratio), 'stat' gives
-    descriptive stats.
+    This produces ~22 statistical features (mean, std, min, max, skewness,
+    kurtosis, quartiles, etc.) that will be used exclusively in the
+    Reference (ActiGraph + Polar HR) prediction scenario.
+
+    Note: We use get_stat_features() instead of get_hrv_features() because
+    the HR data in master_epochs.csv is already averaged into 5-second means
+    (BPM), not beat-level inter-beat intervals. Stat features work well on
+    this already-epoched data.
 
     Args:
         df: Full DataFrame with DatetimeIndex and HR_COL column.
@@ -328,47 +331,33 @@ def extract_hrv_features(df: pd.DataFrame) -> Optional[pd.DataFrame]:
         Feature DataFrame or None.
     """
     if HR_COL not in df.columns:
-        log.warning("  HR column '%s' not found — skipping HRV features.", HR_COL)
+        log.warning("  HR column '%s' not found — skipping HR stat features.", HR_COL)
         return None
 
     hr = df[[HR_COL]].dropna()
-    if len(hr) < 5:
+    if len(hr) < 2:
         log.warning("  Insufficient HR data (%d rows) — skipping.", len(hr))
         return None
 
-    log.info("  Starting FLIRT HRV extraction — %d rows, window=%ds...",
-             len(hr), WINDOW_LENGTH_S)
+    log.info("  Starting FLIRT stat extraction on Polar HR (%d rows)...", len(hr))
 
     try:
-        # ── flirt.get_hrv_features() ──────────────────────────────────────
-        # Args:
-        #   data          : Single-column DataFrame of HR/IBI + DatetimeIndex
-        #   window_length : seconds per window
-        #   window_step_size: stride in seconds
-        #   domains       : list of HRV domain modules to include
-        #   threshold     : outlier removal threshold (seconds)
-        #   clean_data    : whether to clean artefacts before HRV computation
-        #   num_cores     : 0 = auto
-        feats = flirt.get_hrv_features(
+        feats = flirt.get_stat_features(
             hr,
             window_length=WINDOW_LENGTH_S,
             window_step_size=WINDOW_STEP_S,
-            domains=["td", "stat"],  # skip "fd" — needs high-res IBI, not BPM means
-            threshold=0.2,
-            clean_data=True,
-            num_cores=1,
         )
 
         if feats is None or feats.empty:
-            log.warning("  HRV: FLIRT returned an empty result.")
+            log.warning("  HR stat: FLIRT returned an empty result.")
             return None
 
-        feats.columns = [f"hrv_{c}" for c in feats.columns]
-        log.info("  ✓ HRV %d windows × %d features.", *feats.shape)
+        feats.columns = [f"hr_polar_stat_{c}" for c in feats.columns]
+        log.info("  ✓ HR stat %d windows × %d features.", *feats.shape)
         return feats
 
     except Exception as exc:
-        log.error("  HRV extraction failed: %s — skipping.", exc)
+        log.error("  HR stat extraction failed: %s — skipping.", exc)
         return None
 
 
@@ -405,7 +394,7 @@ def resample_mets(df: pd.DataFrame) -> Optional[pd.Series]:
 def build_feature_matrix(
     acc_frames: list,
     stat_frames: list,
-    hrv_frame: Optional[pd.DataFrame],
+    hr_stat_frame: Optional[pd.DataFrame],
     mets: Optional[pd.Series],
 ) -> pd.DataFrame:
     """
@@ -413,8 +402,8 @@ def build_feature_matrix(
     Drops rows where target METs is missing.
     """
     parts = [f for f in (acc_frames + stat_frames) if f is not None and not f.empty]
-    if hrv_frame is not None and not hrv_frame.empty:
-        parts.append(hrv_frame)
+    if hr_stat_frame is not None and not hr_stat_frame.empty:
+        parts.append(hr_stat_frame)
 
     if not parts:
         raise RuntimeError(
@@ -489,10 +478,10 @@ def run_pipeline(
         if stat_f is not None:
             stat_frames.append(stat_f)
 
-    # ── Step 3: Heart-rate variability features ───────────────────────────
+    # ── Step 3: Polar HR statistical features (for Reference scenario) ───
     log.info("─" * 60)
-    log.info("Step 3 — FLIRT HRV feature extraction")
-    hrv_frame = extract_hrv_features(df)
+    log.info("Step 3 — Polar HR statistical feature extraction")
+    hr_stat_frame = extract_hr_stat_features(df)
 
     # ── Step 4: Resample METs ─────────────────────────────────────────────
     log.info("─" * 60)
@@ -502,14 +491,14 @@ def run_pipeline(
     # ── Step 5: Merge and export ───────────────────────────────────────────
     log.info("─" * 60)
     log.info("Step 5 — Building final feature matrix")
-    matrix = build_feature_matrix(acc_frames, stat_frames, hrv_frame, mets)
+    matrix = build_feature_matrix(acc_frames, stat_frames, hr_stat_frame, mets)
 
     output_csv.parent.mkdir(parents=True, exist_ok=True)
     matrix.to_csv(output_csv)
 
     n_acc  = sum(1 for c in matrix.columns if "_acc_" in c)
     n_stat = sum(1 for c in matrix.columns if "_vm_stat_" in c)
-    n_hrv  = sum(1 for c in matrix.columns if c.startswith("hrv_"))
+    n_hr   = sum(1 for c in matrix.columns if c.startswith("hr_polar_stat_"))
 
     log.info("═" * 60)
     log.info("Done!")
@@ -517,7 +506,7 @@ def run_pipeline(
     log.info("  Shape of final matrix:  %d rows × %d columns", *matrix.shape)
     log.info("  Acc features  : %d", n_acc)
     log.info("  VM stat feat  : %d", n_stat)
-    log.info("  HRV features  : %d", n_hrv)
+    log.info("  HR stat feat  : %d", n_hr)
     log.info("  Target (METs) : 1 column")
     log.info("═" * 60)
     return matrix

@@ -1,19 +1,25 @@
 #!/usr/bin/env python3
 """
-DIWAH Machine Learning Evaluation
-=================================
-Trains and evaluates regression models to predict exercise intensity (METs)
-using the 5-second FLIRT features extracted from ActiGraph, Bangle.js, and EmotiBit.
+DIWAH — Machine Learning Evaluation Script (Redesigned)
+========================================================
+Evaluates three prediction scenarios for METs prediction:
 
-This script separates the feature matrix dynamically by device, handles missing values,
-scales features, and evaluates models (Multiple Linear Regression, Random Forest).
+  1. REFERENCE   — ActiGraph accelerometer + Polar HR stat features
+                   (clinical upper bound — "best possible prediction")
+  2. EMOTIBIT    — EmotiBit accelerometer features only
+                   (open-source wearable test 1)
+  3. BANGLE.JS   — Bangle.js accelerometer features only
+                   (open-source wearable test 2)
+
+Target variable: METs from Vyntus indirect calorimetry (ground truth).
+
 Outputs a formatted table of MAE, RMSE, and R-squared for direct use in the thesis.
 
 Enhanced exports:
-  - ml_metrics.json           — MAE/RMSE/R² per device and model
+  - ml_metrics.json           — MAE/RMSE/R² per scenario and model
   - ml_predictions.csv        — True vs Predicted METs per sample (local backup)
   - INFLUXDB                  — Pushes time-series predictions to 'ml_predictions' measurement
-  - ml_feature_importance.json — Top-20 RF feature importances per device
+  - ml_feature_importance.json — Top-20 RF feature importances per scenario
   - ml_intensity_breakdown.json — MAE/RMSE broken down by intensity zone
 """
 
@@ -65,7 +71,7 @@ def load_and_prep_data(csv_path: Path) -> pd.DataFrame:
     """Loads the FLIRT feature matrix and performs basic checks."""
     if not csv_path.exists():
         print(f"[ERROR] Feature matrix not found at {csv_path}")
-        print("Please run scripts/extract_flirt_features.py --all-subjects first.")
+        print("Please run scripts/extract_flirt_features.py first.")
         sys.exit(1)
         
     df = pd.read_csv(csv_path)
@@ -87,16 +93,48 @@ def load_and_prep_data(csv_path: Path) -> pd.DataFrame:
     
     return df
 
-def get_device_columns(df: pd.DataFrame, device: str) -> list:
-    """
-    Dynamically identifies columns belonging to a specific device.
-    """
-    return [col for col in df.columns if col.startswith(f"{device}_")]
+
+# ---------------------------------------------------------------------------
+# Scenario definitions
+# ---------------------------------------------------------------------------
+# Each scenario defines WHICH columns from the feature matrix are used as
+# input features. The target is always 'mets' (Vyntus ground truth).
+#
+# Reference = ActiGraph accel + ActiGraph VM stats + Polar HR stats
+# EmotiBit  = EmotiBit accel + EmotiBit VM stats
+# Bangle.js = Bangle.js accel + Bangle.js VM stats
+# ---------------------------------------------------------------------------
+
+SCENARIOS = {
+    "reference": {
+        "label": "Reference (ActiGraph + Polar HR)",
+        "prefixes": ["actigraph_", "hr_polar_stat_"],
+        "description": "Clinical upper bound: research-grade accelerometer + chest-strap heart rate",
+    },
+    "emotibit": {
+        "label": "EmotiBit (Open-Source)",
+        "prefixes": ["emotibit_"],
+        "description": "Open-source biometric sensor array (accelerometer only)",
+    },
+    "bangle": {
+        "label": "Bangle.js (Open-Source)",
+        "prefixes": ["bangle_"],
+        "description": "Open-source programmable smartwatch (accelerometer only)",
+    },
+}
+
+
+def get_scenario_columns(df: pd.DataFrame, prefixes: list) -> list:
+    """Dynamically identifies columns belonging to a scenario by prefix match."""
+    cols = []
+    for prefix in prefixes:
+        cols.extend([col for col in df.columns if col.startswith(prefix)])
+    return cols
 
 
 def train_and_evaluate(X_train, X_test, y_train, y_test, feature_names=None):
     """
-    Trains MLR and Random Forest, returning metrics, predictions,
+    Trains Ridge Regression and Random Forest, returning metrics, predictions,
     and feature importances from the Random Forest.
     """
     metrics = {}
@@ -211,29 +249,29 @@ def print_beautiful_summary(results: dict):
     print("\n" + "="*80)
     print(" MACHINE LEARNING EVALUATION SUMMARY: ACTIVITY INTENSITY (METs) PREDICTION")
     print("="*80)
-    print(f"{'Device Scenario':<15} | {'Model':<25} | {'MAE':<10} | {'RMSE':<10} | {'R-squared (R²)':<12}")
+    print(f"{'Scenario':<35} | {'Model':<25} | {'MAE':<10} | {'RMSE':<10} | {'R²':<10}")
     print("-" * 80)
     
-    devices = ["ActiGraph", "EmotiBit", "Bangle", "Fused"]
+    scenario_order = ["reference", "emotibit", "bangle"]
     
-    for device in devices:
-        res = results.get(device.lower())
+    for scenario_key in scenario_order:
+        res = results.get(scenario_key)
         if not res:
             continue
             
-        label = device
-        if device == "Fused":
-            label = "Sensor Fusion"
+        label = SCENARIOS[scenario_key]["label"]
             
-        print(f"{label:<15} | {'Multiple Linear Regression':<25} | "
+        print(f"{label:<35} | {'Ridge Linear Regression':<25} | "
               f"{res['MLR']['MAE']:<10.3f} | {res['MLR']['RMSE']:<10.3f} | {res['MLR']['R2']:<10.3f}")
-        print(f"{'':<15} | {'Random Forest Regressor':<25} | "
+        print(f"{'':<35} | {'Random Forest Regressor':<25} | "
               f"{res['RF']['MAE']:<10.3f} | {res['RF']['RMSE']:<10.3f} | {res['RF']['R2']:<10.3f}")
         print("-" * 80)
         
     print("="*80)
     print("Note: MAE (Mean Absolute Error) and RMSE (Root Mean Square Error) are in METs.")
-    print("      R² closer to 1.0 indicates better explained variance.\n")
+    print("      R² closer to 1.0 indicates better explained variance.")
+    print("      Reference scenario includes Polar HR features (clinical upper bound).")
+    print("      Open-source devices use accelerometer features only.\n")
 
 
 def main():
@@ -249,28 +287,32 @@ def main():
     
     print(f"Total valid samples: {len(df)}")
     
-    # ── Per-device evaluation ──────────────────────────────────────────────
-    devices = ["actigraph", "emotibit", "bangle"]
+    # ── Per-scenario evaluation ────────────────────────────────────────────
     results = {}
     all_predictions = []
     all_feature_importances = {}
     all_intensity_breakdowns = {}
-    all_device_features = {}  # Collect for fusion
     
-    for device in devices:
-        print(f"\nProcessing {device.capitalize()}...")
+    for scenario_key, scenario_cfg in SCENARIOS.items():
+        label = scenario_cfg["label"]
+        prefixes = scenario_cfg["prefixes"]
+        desc = scenario_cfg["description"]
         
-        # 1. Identify columns
-        features = get_device_columns(df, device)
+        print(f"\n{'='*60}")
+        print(f"Scenario: {label}")
+        print(f"  {desc}")
+        print(f"{'='*60}")
+        
+        # 1. Identify feature columns for this scenario
+        features = get_scenario_columns(df, prefixes)
         if not features:
-            print(f"  [WARNING] No features found for {device}. Skipping.")
+            print(f"  [WARNING] No features found for {scenario_key}. Skipping.")
             continue
             
-        print(f"  Found {len(features)} {device} features.")
+        print(f"  Found {len(features)} features.")
         X = df[features]
         
         X = X.replace([np.inf, -np.inf], np.nan)
-        all_device_features[device] = X
         
         imputer = SimpleImputer(strategy='median')
         X_imputed = imputer.fit_transform(X)
@@ -286,78 +328,28 @@ def main():
         X_train_scaled = scaler.fit_transform(X_train)
         X_test_scaled = scaler.transform(X_test)
         
-        print("  Training MLR and Random Forest models...")
+        print("  Training Ridge Regression and Random Forest models...")
         metrics, preds_payload, importance_data = train_and_evaluate(
             X_train_scaled, X_test_scaled, y_train, y_test, feature_names=features
         )
         
-        results[device] = metrics
-        all_feature_importances[device] = importance_data[:20]
+        results[scenario_key] = metrics
+        all_feature_importances[scenario_key] = importance_data[:20]
         
         # Intensity breakdown
         intensity_bd = compute_intensity_breakdown(y_test, preds_payload)
-        all_intensity_breakdowns[device] = intensity_bd
+        all_intensity_breakdowns[scenario_key] = intensity_bd
         
         # Accumulate time-series predictions
         test_timestamps = df['datetime'].iloc[idx_test].values
         test_subjects = df['subject_id'].iloc[idx_test].values
         
-        dev_label = "Bangle.js" if device == "bangle" else ("ActiGraph" if device == "actigraph" else "EmotiBit")
-        
         for model_name, preds_arr in preds_payload.items():
             for t_idx, (t_val, p_val) in enumerate(zip(y_test, preds_arr)):
                 all_predictions.append({
                     "timestamp": test_timestamps[t_idx],
                     "subject": test_subjects[t_idx],
-                    "Device": dev_label,
-                    "Model": model_name,
-                    "True_METs": t_val,
-                    "Pred_METs": p_val
-                })
-        
-    # ── Sensor Fusion model (all devices combined) ─────────────────────────
-    if len(all_device_features) == 3:
-        print(f"\nProcessing Sensor Fusion (all devices combined)...")
-        
-        X_fused = pd.concat(list(all_device_features.values()), axis=1)
-        fused_features = list(X_fused.columns)
-        X_fused = X_fused.replace([np.inf, -np.inf], np.nan)
-        
-        print(f"  Combined {len(fused_features)} features from all devices.")
-        
-        imputer = SimpleImputer(strategy='median')
-        X_fused_imputed = imputer.fit_transform(X_fused)
-        
-        indices = np.arange(len(y))
-        X_train, X_test, y_train, y_test, idx_train, idx_test = train_test_split(
-            X_fused_imputed, y, indices, test_size=0.20, random_state=42
-        )
-        print(f"  Training set: {X_train.shape[0]} windows. Testing set: {X_test.shape[0]} windows.")
-        
-        scaler = StandardScaler()
-        X_train_scaled = scaler.fit_transform(X_train)
-        X_test_scaled = scaler.transform(X_test)
-        
-        print("  Training MLR and Random Forest models...")
-        metrics, preds_payload, importance_data = train_and_evaluate(
-            X_train_scaled, X_test_scaled, y_train, y_test, feature_names=fused_features
-        )
-        
-        results["fused"] = metrics
-        all_feature_importances["fused"] = importance_data[:20]
-        
-        intensity_bd = compute_intensity_breakdown(y_test, preds_payload)
-        all_intensity_breakdowns["fused"] = intensity_bd
-        
-        test_timestamps = df['datetime'].iloc[idx_test].values
-        test_subjects = df['subject_id'].iloc[idx_test].values
-        
-        for model_name, preds_arr in preds_payload.items():
-            for t_idx, (t_val, p_val) in enumerate(zip(y_test, preds_arr)):
-                all_predictions.append({
-                    "timestamp": test_timestamps[t_idx],
-                    "subject": test_subjects[t_idx],
-                    "Device": "Sensor Fusion",
+                    "Device": label,
                     "Model": model_name,
                     "True_METs": t_val,
                     "Pred_METs": p_val
@@ -384,10 +376,10 @@ def main():
     with open(OUTPUT_DIR / "ml_intensity_breakdown.json", "w") as f:
         json.dump(all_intensity_breakdowns, f, indent=4)
     
-    print(f"\n[SUCCESS] Exported metrics to {OUTPUT_DIR}\\ml_metrics.json")
-    print(f"[SUCCESS] Exported local predictions backup to {OUTPUT_DIR}\\ml_predictions.csv")
-    print(f"[SUCCESS] Exported feature importances to {OUTPUT_DIR}\\ml_feature_importance.json")
-    print(f"[SUCCESS] Exported intensity breakdown to {OUTPUT_DIR}\\ml_intensity_breakdown.json")
+    print(f"\n[SUCCESS] Exported metrics to {OUTPUT_DIR / 'ml_metrics.json'}")
+    print(f"[SUCCESS] Exported local predictions backup to {OUTPUT_DIR / 'ml_predictions.csv'}")
+    print(f"[SUCCESS] Exported feature importances to {OUTPUT_DIR / 'ml_feature_importance.json'}")
+    print(f"[SUCCESS] Exported intensity breakdown to {OUTPUT_DIR / 'ml_intensity_breakdown.json'}")
 
     # 5. Push to InfluxDB
     if not args.no_influx:
