@@ -268,16 +268,16 @@ def update_summary(sub1, sub2):
     for dev, st in stats.items():
         cards.append(create_kpi_card(dev.title(), f"{st['mean']:.2f}g", f"{st['count']:,} samples", tooltip_text=f"Average acceleration magnitude for {dev}"))
     
-    # Vyntus HR card
+    # Polar HR card
     hr_df = data.get('calorimetry', {}).get('hr')
     if hr_df is not None and not hr_df.empty:
         avg_hr = hr_df['HR'].mean()
         hr_count = len(hr_df)
         cards.append(create_kpi_card(
-            'Vyntus HR',
+            'Polar HR',
             f"{avg_hr:.0f} bpm",
             f"{hr_count:,} samples",
-            tooltip_text="Average heart rate recorded by the Vyntus One during this activity session"
+            tooltip_text="Average heart rate recorded by the Polar Chest Strap during this activity session"
         ))
     
     return html.Div(cards)
