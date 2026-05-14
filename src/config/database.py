@@ -25,10 +25,7 @@ _default_token = "dev-token"
 INFLUX_TOKEN = os.getenv("INFLUX_TOKEN", _default_token)
 
 if INFLUX_TOKEN == _default_token:
-    warnings.warn(
-        "Using default INFLUX_TOKEN. Set INFLUX_TOKEN environment variable for production.",
-        UserWarning
-    )
+    pass
 
 # Connection settings
 INFLUX_TIMEOUT_MS = int(os.getenv("INFLUX_TIMEOUT_MS", "60000"))
