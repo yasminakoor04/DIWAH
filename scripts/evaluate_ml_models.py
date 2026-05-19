@@ -158,11 +158,8 @@ def print_beautiful_summary(results: dict):
         if not res:
             continue
             
-        label = device
-        if device == "Fused":
-            label = "Sensor Fusion"
-            
-        print(f"{label:<15} | {'Ridge Regression':<25} | "
+        label = SCENARIOS[scenario_key]["label"]
+        print(f"{label:<35} | {'Ridge Linear Regression':<25} | "
               f"{res['MLR']['MAE']:<10.3f} | {res['MLR']['RMSE']:<10.3f} | {res['MLR']['R2']:<10.3f}")
         print(f"{'':<35} | {'Random Forest Regressor':<25} | "
               f"{res['RF']['MAE']:<10.3f} | {res['RF']['RMSE']:<10.3f} | {res['RF']['R2']:<10.3f}")
