@@ -9,6 +9,11 @@ Evaluates three prediction scenarios for METs prediction using Leave-One-Subject
 
 Outputs a formatted table of MAE, RMSE, and R-squared for direct use in the thesis.
 
+Methodology
+  - Imputer leakage fix: SimpleImputer + StandardScaler wrapped in sklearn.Pipeline
+  - Bad subject exclusion: 6 participants with hardware failures excluded
+  - Ridge alpha tuning: nested GroupKFold CV over [0.1, 1, 10, 100, 1000]
+
 Enhanced exports:
   - ml_metrics.json           — MAE/RMSE/R² per scenario and model
   - ml_predictions.csv        — True vs Predicted METs per sample (local backup)
@@ -27,9 +32,10 @@ import pandas as pd
 import numpy as np
 
 # Scikit-learn
-from sklearn.model_selection import LeaveOneGroupOut
+from sklearn.model_selection import LeaveOneGroupOut, GroupKFold, GridSearchCV
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
 from sklearn.linear_model import Ridge
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
@@ -60,6 +66,14 @@ SCENARIOS = {
         "path": OUTPUT_DIR / "flirt_bangle.csv"
     }
 }
+
+# Participants excluded due to known hardware failures during data collection
+# (consistent with validate_synchronization.ipynb)
+BAD_SUBJECTS = [2004, 2005, 2008, 2014, 2019, 2032]
+
+# Ridge alpha search space (supervisor suggestion)
+RIDGE_ALPHAS = [0.1, 1, 10, 100, 1000]
+
 
 def classify_intensity(mets_value: float) -> str:
     """Classify a MET value into standard intensity zones."""
@@ -176,7 +190,11 @@ def main():
             df = df.rename(columns={'Unnamed: 0': 'timestamp'})
             
         df = df.dropna(subset=["mets", "subject_id"])
-        print(f"  Loaded {len(df)} epochs.")
+
+        # Exclude participants with known data quality issues
+        # (consistent with validate_synchronization.ipynb)
+        df = df[~df["subject_id"].isin(BAD_SUBJECTS)]
+        print(f"  Loaded {len(df)} epochs (after excluding {len(BAD_SUBJECTS)} bad subjects).")
         
         y = df['mets'].values
         groups = df['subject_id'].astype(str).values
@@ -189,49 +207,63 @@ def main():
         X = X.replace([np.inf, -np.inf], np.nan)
         feature_names = X.columns.tolist()
         
-        # Impute missing values
-        imputer = SimpleImputer(strategy='median')
-        X_imputed = imputer.fit_transform(X)
-        
-        logo = LeaveOneGroupOut()
-        rf_true_all, rf_pred_all = [], []
-        ridge_true_all, ridge_pred_all = [], []
-        
-        test_timestamps_all = []
-        test_subjects_all = []
-        
-        # Fit global RF on full dataset for feature importances
+        # Fit global RF on full dataset for feature importances (impute+scale first)
+        imp_global = SimpleImputer(strategy='median')
+        X_imputed_global = imp_global.fit_transform(X)
+        sc_global = StandardScaler()
+        X_global_scaled = sc_global.fit_transform(X_imputed_global)
         rf_global = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
-        X_global_scaled = StandardScaler().fit_transform(X_imputed)
         rf_global.fit(X_global_scaled, y)
         importances = rf_global.feature_importances_
         importance_data = [{"feature": name, "importance": float(imp)} for name, imp in zip(feature_names, importances)]
         importance_data.sort(key=lambda x: x["importance"], reverse=True)
         all_feature_importances[scenario_key] = importance_data[:20]
         
-        print("  Running Leave-One-Subject-Out Cross-Validation...")
+        # LOSO Cross-Validation using Pipelines (no leakage)
+        logo = LeaveOneGroupOut()
+        rf_true_all, rf_pred_all = [], []
+        ridge_true_all, ridge_pred_all = [], []
+        test_timestamps_all = []
+        test_subjects_all = []
+        
+        rf_pipeline = Pipeline([
+            ('imp', SimpleImputer(strategy='median')),
+            ('sc', StandardScaler()),
+            ('mdl', RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1))
+        ])
         
         ts_col = df['timestamp'].values if 'timestamp' in df.columns else df['datetime'].values
-            
-        for train_index, test_index in logo.split(X_imputed, y, groups):
-            X_train, X_test = X_imputed[train_index], X_imputed[test_index]
+        
+        print("  Running Leave-One-Subject-Out Cross-Validation...")
+        for train_index, test_index in logo.split(X, y, groups):
+            X_train, X_test = X.iloc[train_index], X.iloc[test_index]
             y_train, y_test = y[train_index], y[test_index]
+            groups_train = groups[train_index]
             
-            scaler = StandardScaler()
-            X_train_scaled = scaler.fit_transform(X_train)
-            X_test_scaled = scaler.transform(X_test)
-            
-            mlr = Ridge(alpha=1.0)
-            mlr.fit(X_train_scaled, y_train)
-            ridge_pred = mlr.predict(X_test_scaled)
-            ridge_true_all.extend(y_test)
-            ridge_pred_all.extend(ridge_pred)
-            
-            rf = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
-            rf.fit(X_train_scaled, y_train)
-            rf_pred = rf.predict(X_test_scaled)
+            # Random Forest (Pipeline prevents leakage)
+            rf_pipeline.fit(X_train, y_train)
+            rf_pred = rf_pipeline.predict(X_test)
             rf_true_all.extend(y_test)
             rf_pred_all.extend(rf_pred)
+            
+            # Ridge with nested alpha tuning (GroupKFold)
+            ridge_pipe = Pipeline([
+                ('imp', SimpleImputer(strategy='median')),
+                ('sc', StandardScaler()),
+                ('mdl', Ridge())
+            ])
+            n_inner = min(5, len(np.unique(groups_train)))
+            grid = GridSearchCV(
+                ridge_pipe,
+                param_grid={'mdl__alpha': RIDGE_ALPHAS},
+                cv=GroupKFold(n_splits=n_inner),
+                scoring='neg_mean_absolute_error',
+                n_jobs=-1
+            )
+            grid.fit(X_train, y_train, groups=groups_train)
+            ridge_pred = grid.predict(X_test)
+            ridge_true_all.extend(y_test)
+            ridge_pred_all.extend(ridge_pred)
             
             test_timestamps_all.extend(ts_col[test_index])
             test_subjects_all.extend(groups[test_index])
