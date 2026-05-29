@@ -278,3 +278,30 @@ def perform_subgroup_comparison(df: pd.DataFrame, group_col: str, metric_col: st
         'test': 'Mann-Whitney U'
     }
 
+_all_aligned_cache = None
+
+def get_all_aligned_data(exclude_bad: bool = False) -> pd.DataFrame:
+    """
+    Load aligned data for all subjects, concatenate them into a single large DataFrame.
+    Used for creating a massive scatter plot of all valid epochs.
+    """
+    global _all_aligned_cache
+    if _all_aligned_cache is None:
+        dfs = []
+        for subject in COHORT_SUBJECTS:
+            df = load_aligned_data(subject)
+            if df is not None and not df.empty:
+                df['Subject'] = subject
+                dfs.append(df)
+        if dfs:
+            _all_aligned_cache = pd.concat(dfs)
+        else:
+            _all_aligned_cache = pd.DataFrame()
+            
+    df = _all_aligned_cache.copy()
+    if exclude_bad and not df.empty:
+        from .data_quality import get_quality_summary
+        bad_subjects = get_quality_summary().get('bad_subjects', [])
+        df = df[~df['Subject'].astype(str).isin(bad_subjects)]
+        
+    return df

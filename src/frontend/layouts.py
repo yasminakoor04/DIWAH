@@ -195,7 +195,8 @@ def create_main_tabs() -> dbc.Tabs:
     return dbc.Tabs([
         dbc.Tab(label='Time Series', tab_id='tab-timeseries'),
         dbc.Tab(label='Statistics', tab_id='tab-stats'),
-        dbc.Tab(label='Correlations', tab_id='tab-corr'),
+        dbc.Tab(label='Bangle Correlation', tab_id='tab-corr'),
+        dbc.Tab(label='EmotiBit Correlation', tab_id='tab-corr-emotibit'),
         dbc.Tab(label='Machine Learning', tab_id='tab-ml'),
         dbc.Tab(label='About', tab_id='tab-about')
     ], id='tabs', active_tab='tab-timeseries')
@@ -309,10 +310,11 @@ def create_correlation_layout(corr_df: pd.DataFrame, subjects: List[str], templa
     min_r = 0.0
     max_r = 0.0
     if not corr_df.empty and 'Bangle_Actigraph' in corr_df.columns:
-        overall_r = corr_df['Bangle_Actigraph'].mean()
-        min_r = corr_df['Bangle_Actigraph'].min()
-        max_r = corr_df['Bangle_Actigraph'].max()
-        n_subjects = len(corr_df)
+        valid_bangle = corr_df['Bangle_Actigraph'].dropna()
+        overall_r = valid_bangle.mean() if len(valid_bangle) > 0 else 0.0
+        min_r = valid_bangle.min() if len(valid_bangle) > 0 else 0.0
+        max_r = valid_bangle.max() if len(valid_bangle) > 0 else 0.0
+        n_subjects = len(valid_bangle)
         
     # Demographic Stats (Gender)
     male_r = 0.0
@@ -363,12 +365,12 @@ def create_correlation_layout(corr_df: pd.DataFrame, subjects: List[str], templa
                 # Data Quality Banner Info
                 html.Div([
                     html.Div([
-                        html.Span(f"{quality_summary['good']} high-quality subjects", style={
+                        html.Span(f"{n_subjects} high-quality subjects", style={
                             'fontSize': '0.8rem', 'color': COLORS['ivy'], 'fontWeight': '600',
                         }),
                     ], style={'display': 'flex', 'alignItems': 'center'}),
                     html.Div([
-                        html.Small(f"{quality_summary['bad']} excluded", 
+                        html.Small(f"{30 - n_subjects} excluded", 
                                   style={'color': '#666', 'fontSize': '0.75rem', 'marginRight': '5px'}),
                         html.I(className="bi bi-info-circle-fill", id="tooltip-quality-banner", 
                                style={"fontSize": "0.75rem", "color": "#999", "cursor": "pointer"}),
@@ -559,6 +561,31 @@ def create_correlation_layout(corr_df: pd.DataFrame, subjects: List[str], templa
             ], xs=12, lg=4, className="mb-3"),
         ], className="mb-5 g-3"),
 
+        # === Cohort Aggregated Scatter ===
+        html.Div([
+            html.H5("Cohort Aggregated Scatter Plot", style={
+                'fontWeight': '600', 'marginBottom': '15px',
+                'paddingBottom': '10px', 'borderBottom': f'2px solid {COLORS["buttercup"]}'
+            }),
+        ], style={'marginTop': '20px'}),
+
+        dbc.Row([
+            dbc.Col([
+                html.Div([
+                    html.P("Overall Correlation - Bangle.js vs. Actigraph", style={
+                        'textAlign': 'center', 'fontWeight': '500', 
+                        'margin': '15px 0 0 0', 'fontSize': '0.9rem'
+                    }),
+                    dcc.Loading(dcc.Graph(id='corr-cohort-scatter', style={'height': '400px'}, config={'responsive': True}))
+                ], className="card", style={
+                    'borderRadius': '10px',
+                    'boxShadow': 'var(--card-shadow)',
+                    'overflow': 'hidden',
+                    'marginBottom': '20px'
+                })
+            ], xs=12)
+        ]),
+
         # === Individual Participant Detail ===
         html.Div([
             html.H5("Individual Participant Analysis", style={
@@ -642,6 +669,342 @@ def create_correlation_layout(corr_df: pd.DataFrame, subjects: List[str], templa
             'borderLeft': f'4px solid {COLORS["ivy"]}'
         }),
         
+    ], style={'padding': '20px', 'minHeight': '100vh'})
+
+
+def create_emotibit_correlation_layout(corr_df: pd.DataFrame, subjects: List[str], template: str = "plotly_white") -> html.Div:
+    """
+    Create the EmotiBit Correlations tab layout — EmotiBit vs Actigraph.
+    Mirrors the Bangle correlation page structure with EmotiBit-specific data.
+    """
+    from ..backend.correlation import perform_subgroup_comparison
+    from ..backend.data_quality import get_bad_subjects, get_quality_summary
+    from .visualizations import make_scatter_plot, make_time_series_overlay, make_correlation_bar_chart, make_subgroup_boxplot, make_gender_bar_chart
+
+    quality_summary = get_quality_summary()
+    bad_subjects = quality_summary.get('bad_subjects', [])
+
+    # Overall Stats for EmotiBit
+    overall_r = 0.0
+    n_subjects = 0
+    min_r = 0.0
+    max_r = 0.0
+    metric = 'EmotiBit_Actigraph'
+    if not corr_df.empty and metric in corr_df.columns:
+        valid = corr_df[metric].dropna()
+        overall_r = valid.mean() if len(valid) > 0 else 0.0
+        min_r = valid.min() if len(valid) > 0 else 0.0
+        max_r = valid.max() if len(valid) > 0 else 0.0
+        n_subjects = len(valid)
+
+    # Demographic Stats (Gender)
+    male_r = 0.0
+    male_n = 0
+    female_r = 0.0
+    female_n = 0
+    mw_test = {}
+
+    if not corr_df.empty and 'Gender' in corr_df.columns and metric in corr_df.columns:
+        valid_df = corr_df.dropna(subset=[metric])
+
+        m_df = valid_df[valid_df['Gender'] == 'Male']
+        if not m_df.empty:
+            male_r = m_df[metric].mean()
+            male_n = len(m_df)
+
+        f_df = valid_df[valid_df['Gender'] == 'Female']
+        if not f_df.empty:
+            female_r = f_df[metric].mean()
+            female_n = len(f_df)
+
+        res = perform_subgroup_comparison(valid_df, 'Gender', metric)
+        if 'p_value' in res:
+            p_val = res['p_value']
+            u_stat = res['u_stat']
+            interp = "No significant difference between groups"
+            if p_val < 0.05:
+                interp = "Significant difference detected (p < 0.05)"
+            mw_test = {'u_stat': u_stat, 'p_value': p_val, 'interpretation': interp}
+
+    def get_quality_color(r_val):
+        if r_val >= 0.7: return COLORS['ivy']
+        elif r_val >= 0.5: return COLORS['buttercup']
+        else: return COLORS['azalea']
+
+    return html.Div([
+        # === Header Banner ===
+        html.Div([
+            html.Div([
+                html.Div([
+                    html.H3("Correlation Analysis",
+                           style={'margin': 0, 'fontWeight': '600', 'color': COLORS['soot']}),
+                    html.P("EmotiBit vs Actigraph (Research-Grade Reference)",
+                          style={'margin': '5px 0 0 0', 'fontSize': '0.95rem', 'color': COLORS['soot']})
+                ]),
+                html.Div([
+                    html.Div([
+                        html.Span(f"{n_subjects} high-quality subjects", style={
+                            'fontSize': '0.8rem', 'color': COLORS['ivy'], 'fontWeight': '600',
+                        }),
+                    ], style={'display': 'flex', 'alignItems': 'center'}),
+                    html.Div([
+                        html.Small(f"{30 - n_subjects} excluded",
+                                  style={'color': '#666', 'fontSize': '0.75rem', 'marginRight': '5px'}),
+                    ], style={'marginTop': '5px', 'display': 'flex', 'alignItems': 'center', 'justifyContent': 'flex-end'})
+                ], style={'textAlign': 'right'})
+            ], style={'display': 'flex', 'justifyContent': 'space-between', 'alignItems': 'flex-start'})
+        ], style={
+            'background': f"linear-gradient(135deg, {COLORS['buttercup']} 0%, {COLORS['lily']} 100%)",
+            'padding': '20px 25px',
+            'borderRadius': '12px',
+            'marginBottom': '25px',
+            'boxShadow': '0 2px 8px rgba(0,0,0,0.08)'
+        }),
+
+        # === ROW 1: Overall Correlation ===
+        dbc.Row([
+            dbc.Col([
+                html.Div([
+                    html.Div([
+                        html.Div([
+                            html.Span("OVERALL CORRELATION", className="text-muted", style={
+                                'fontSize': '0.75rem', 'fontWeight': '600',
+                                'letterSpacing': '1px', 'marginBottom': '10px'
+                            }),
+                        ], style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'center'}),
+                        html.Div(id='emo-overall-corr-value'),
+                        html.Div(id='emo-overall-corr-info', className="text-muted", style={
+                            'fontSize': '0.9rem', 'marginTop': '8px'
+                        })
+                    ], style={'textAlign': 'center'})
+                ], className="card", style={
+                    'padding': '25px 40px', 'borderRadius': '12px',
+                    'boxShadow': 'var(--card-shadow)',
+                    'borderTop': f'4px solid {get_quality_color(overall_r)}'
+                })
+            ], xs=12, md=12)
+        ], className="mb-4"),
+
+        # === ROW 2: Correlation by Participant ===
+        html.Div([
+            html.H5("Correlation by Participant", style={
+                'fontWeight': '600', 'marginBottom': '15px',
+                'paddingBottom': '10px', 'borderBottom': f'2px solid {COLORS["crocus"]}'
+            }),
+        ], style={'marginTop': '20px'}),
+
+        dbc.Row([
+            dbc.Col([
+                html.Div([
+                    html.Div([
+                        html.Span("Sorted by correlation strength", className="text-muted", style={
+                            'fontSize': '0.85rem'
+                        })
+                    ], style={'padding': '12px 20px', 'borderBottom': '1px solid var(--border-color)'}),
+                    dcc.Loading(dcc.Graph(
+                        figure=make_correlation_bar_chart(corr_df, metric=metric, template=template),
+                        id='emo-corr-bar-chart',
+                        style={'height': f'{max(450, len(corr_df) * 32)}px'},
+                        config={'responsive': True}
+                    ))
+                ], className="card", style={
+                    'borderRadius': '10px',
+                    'boxShadow': 'var(--card-shadow)',
+                    'overflow': 'hidden',
+                    'borderLeft': f'4px solid {COLORS["crocus"]}'
+                })
+            ], xs=12, lg=12, className="mb-4"),
+        ]),
+
+        # === ROW 3: Gender Comparison ===
+        html.Div([
+            html.H5("Gender Comparison", style={
+                'fontWeight': '600', 'marginBottom': '15px',
+                'paddingBottom': '10px', 'borderBottom': f'2px solid {COLORS["crocus"]}'
+            }),
+        ], style={'marginTop': '20px'}),
+
+        dbc.Row([
+            # Left Column: Stats Cards
+            dbc.Col([
+                html.Div([
+                    html.Div([
+                        html.Div("MALE", className="text-muted", style={
+                            'fontSize': '0.7rem', 'fontWeight': '600',
+                            'letterSpacing': '1px', 'marginBottom': '8px'
+                        }),
+                        html.Div(f"r = {male_r:.2f}", style={
+                            'fontSize': '1.8rem', 'fontWeight': '600', 'color': COLORS['crocus']
+                        }),
+                        html.Div(f"n = {male_n}", style={
+                            'fontSize': '0.85rem', 'marginTop': '5px'
+                        })
+                    ], className="card mb-3", style={
+                        'padding': '15px', 'borderRadius': '10px',
+                        'boxShadow': 'var(--card-shadow)',
+                        'borderLeft': f'4px solid {COLORS["crocus"]}',
+                        'flex': '1'
+                    }),
+                    html.Div([
+                        html.Div("FEMALE", className="text-muted", style={
+                            'fontSize': '0.7rem', 'fontWeight': '600',
+                            'letterSpacing': '1px', 'marginBottom': '8px'
+                        }),
+                        html.Div(f"r = {female_r:.2f}", style={
+                            'fontSize': '1.8rem', 'fontWeight': '600', 'color': COLORS['azalea']
+                        }),
+                        html.Div(f"n = {female_n}", style={
+                            'fontSize': '0.85rem', 'marginTop': '5px'
+                        })
+                    ], className="card mb-3", style={
+                        'padding': '15px', 'borderRadius': '10px',
+                        'boxShadow': 'var(--card-shadow)',
+                        'borderLeft': f'4px solid {COLORS["azalea"]}',
+                        'flex': '1'
+                    }),
+                    html.Div([
+                        html.Div([
+                            html.Span("MANN-WHITNEY U TEST", className="text-muted", style={
+                                'fontSize': '0.7rem', 'fontWeight': '600',
+                                'letterSpacing': '1px', 'marginBottom': '8px'
+                            }),
+                        ], style={'display': 'flex', 'alignItems': 'center'}),
+                        html.Div(f"p = {format_p_value(mw_test.get('p_value', 1.0))}", style={
+                            'fontSize': '1.6rem', 'fontWeight': '600',
+                            'color': COLORS['ivy'] if mw_test.get('p_value', 1) >= 0.05 else COLORS['azalea']
+                        }),
+                        html.Div(mw_test.get('interpretation', 'N/A'), className="text-muted", style={
+                            'fontSize': '0.8rem', 'marginTop': '5px'
+                        })
+                    ], className="card", style={
+                        'padding': '15px', 'borderRadius': '10px',
+                        'boxShadow': 'var(--card-shadow)',
+                        'borderLeft': f'4px solid {COLORS["soot"]}',
+                        'flex': '1.2'
+                    })
+                ], style={'display': 'flex', 'flexDirection': 'column', 'justifyContent': 'space-between', 'height': '100%', 'minHeight': '380px'})
+            ], xs=12, lg=4, className="mb-3"),
+
+            # Middle Column: Gender Average Bar Chart
+            dbc.Col([
+                html.Div([
+                    html.Div([
+                        html.Span("Average Correlation by Gender", className="text-muted", style={
+                            'fontSize': '0.85rem'
+                        })
+                    ], style={'padding': '12px 20px', 'borderBottom': '1px solid var(--border-color)'}),
+                    dcc.Loading(dcc.Graph(
+                        figure=make_gender_bar_chart(corr_df, 'Gender', metric=metric, template=template),
+                        id='emo-corr-gender-bar',
+                        style={'height': '380px'},
+                        config={'responsive': True}
+                    ))
+                ], className="card", style={
+                    'borderRadius': '10px',
+                    'boxShadow': 'var(--card-shadow)',
+                    'overflow': 'hidden',
+                    'borderLeft': f'4px solid {COLORS["buttercup"]}'
+                })
+            ], xs=12, lg=4, className="mb-3"),
+
+            # Right Column: Boxplot
+            dbc.Col([
+                html.Div([
+                    html.Div([
+                        html.Span("Gender Distribution", className="text-muted", style={
+                            'fontSize': '0.85rem'
+                        })
+                    ], style={'padding': '12px 20px', 'borderBottom': '1px solid var(--border-color)'}),
+                    dcc.Loading(dcc.Graph(
+                        figure=make_subgroup_boxplot(corr_df, 'Gender', metric=metric, template=template),
+                        id='emo-corr-boxplot',
+                        style={'height': '380px'},
+                        config={'responsive': True}
+                    ))
+                ], className="card", style={
+                    'borderRadius': '10px',
+                    'boxShadow': 'var(--card-shadow)',
+                    'overflow': 'hidden'
+                })
+            ], xs=12, lg=4, className="mb-3"),
+        ], className="mb-5 g-3"),
+
+        # === Cohort Aggregated Scatter ===
+        html.Div([
+            html.H5("Cohort Aggregated Scatter Plot", style={
+                'fontWeight': '600', 'marginBottom': '15px',
+                'paddingBottom': '10px', 'borderBottom': f'2px solid {COLORS["crocus"]}'
+            }),
+        ], style={'marginTop': '20px'}),
+
+        dbc.Row([
+            dbc.Col([
+                html.Div([
+                    html.P("Overall Correlation - EmotiBit vs. Actigraph", style={
+                        'textAlign': 'center', 'fontWeight': '500', 
+                        'margin': '15px 0 0 0', 'fontSize': '0.9rem'
+                    }),
+                    dcc.Loading(dcc.Graph(id='emo-corr-cohort-scatter', style={'height': '400px'}, config={'responsive': True}))
+                ], className="card", style={
+                    'borderRadius': '10px',
+                    'boxShadow': 'var(--card-shadow)',
+                    'overflow': 'hidden',
+                    'marginBottom': '20px'
+                })
+            ], xs=12)
+        ]),
+
+        # === Individual Participant Detail ===
+        html.Div([
+            html.H5("Individual Participant Analysis", style={
+                'fontWeight': '600', 'marginBottom': '15px',
+                'paddingBottom': '10px', 'borderBottom': f'2px solid {COLORS["crocus"]}'
+            }),
+        ], style={'marginTop': '20px'}),
+
+        html.Div([
+            html.Div([
+                html.Div([
+                    html.Label("Select Participant:", style={'marginRight': '10px', 'fontWeight': '500'}),
+                    dcc.Dropdown(
+                        id='emo-corr-subject-dd',
+                        options=[{'label': f"Participant {PARTICIPANT_MAPPING.get(str(s), s)}", 'value': s} for s in subjects],
+                        value=subjects[0] if subjects else None,
+                        clearable=False,
+                        style={'width': '150px'}
+                    )
+                ], style={'display': 'flex', 'alignItems': 'center'})
+            ], style={
+                'padding': '15px 20px', 'borderBottom': '1px solid #eee'
+            }),
+
+            dbc.Row([
+                dbc.Col([
+                    html.Div([
+                        html.P("Scatter Plot — EmotiBit vs Actigraph", style={
+                            'textAlign': 'center', 'fontWeight': '500',
+                            'margin': '15px 0 0 0', 'fontSize': '0.9rem'
+                        }),
+                        dcc.Loading(dcc.Graph(id='emo-corr-scatter-plot', style={'height': '320px'}, config={'responsive': True}))
+                    ])
+                ], xs=12, lg=12, className="mb-4"),
+                dbc.Col([
+                    html.Div([
+                        html.P("Time Series Overlay", style={
+                            'textAlign': 'center', 'fontWeight': '500',
+                            'margin': '15px 0 0 0', 'fontSize': '0.9rem'
+                        }),
+                        dcc.Loading(dcc.Graph(id='emo-corr-time-plot', style={'height': '320px'}, config={'responsive': True}))
+                    ])
+                ], xs=12, lg=6),
+            ], className="g-0")
+        ], className="card", style={
+            'borderRadius': '10px',
+            'boxShadow': 'var(--card-shadow)',
+            'overflow': 'hidden',
+            'marginBottom': '20px'
+        }),
+
     ], style={'padding': '20px', 'minHeight': '100vh'})
 
 

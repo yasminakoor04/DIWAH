@@ -465,7 +465,7 @@ def make_gender_bar_chart(df: pd.DataFrame, group_col: str, metric: str = 'Bangl
     return fig
 
 
-def make_scatter_plot(df: pd.DataFrame, x_col: str, y_col: str, template: str = "plotly_white") -> go.Figure:
+def make_scatter_plot(df: pd.DataFrame, x_col: str, y_col: str, template: str = "plotly_white", override_r: float = None) -> go.Figure:
     """
     Create beautiful scatter plot of aligned magnitudes with correlation line.
     """
@@ -480,14 +480,22 @@ def make_scatter_plot(df: pd.DataFrame, x_col: str, y_col: str, template: str = 
     else:
         plot_df = df
         
-    r, p = stats.pearsonr(plot_df[x_col].dropna(), plot_df[y_col].dropna())
+    valid_df = plot_df[[x_col, y_col]].dropna()
+    
+    if len(valid_df) > 1:
+        r, p = stats.pearsonr(valid_df[x_col], valid_df[y_col])
+    else:
+        r, p = 0.0, 1.0
+        
+    if override_r is not None:
+        r = override_r
     
     # Create scatter
     fig = go.Figure()
     
     fig.add_trace(go.Scatter(
-        x=plot_df[x_col],
-        y=plot_df[y_col],
+        x=valid_df[x_col],
+        y=valid_df[y_col],
         mode='markers',
         marker=dict(
             color=COLORS['crocus'],
@@ -495,7 +503,7 @@ def make_scatter_plot(df: pd.DataFrame, x_col: str, y_col: str, template: str = 
             opacity=0.5,
             line=dict(width=0)
         ),
-        hovertemplate='Actigraph: %{x:.2f}g<br>Bangle: %{y:.2f}g<extra></extra>'
+        hovertemplate=f'{x_col}: %{{x:.2f}}g<br>{y_col}: %{{y:.2f}}g<extra></extra>'
     ))
     
     # Add identity line (perfect agreement)

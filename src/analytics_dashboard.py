@@ -338,6 +338,21 @@ def render_tab(tab, sub1, sub2, is_dark_mode, ex1, ex2):
             subjects = sorted(corr_df['Subject'].astype(str).unique())
         return create_correlation_layout(corr_df, subjects, template=template)
 
+    if tab == 'tab-corr-emotibit':
+        from src.backend.correlation import get_cohort_analysis
+        from src.backend.data_quality import filter_good_subjects
+        from src.frontend.layouts import create_emotibit_correlation_layout
+        
+        corr_df = get_cohort_analysis()
+        if exclude_bad:
+            corr_df = filter_good_subjects(corr_df)
+            
+        subjects = []
+        if not corr_df.empty and 'Subject' in corr_df.columns:
+            subjects = sorted(corr_df['Subject'].astype(str).unique())
+        return create_emotibit_correlation_layout(corr_df, subjects, template=template)
+
+
     if tab == 'tab-ml':
         from src.frontend.layouts import create_ml_layout
         return create_ml_layout(is_dark=is_dark_mode)
@@ -493,6 +508,47 @@ def update_corr_boxplot(tab, is_dark, ex1, ex2):
         return {}
 
 @app.callback(
+    Output('corr-cohort-scatter', 'figure'),
+    [Input('tabs', 'active_tab'),
+     Input('theme-toggle', 'value'),
+     Input('exclude-bad-data-switch', 'value'),
+     Input('mobile-exclude-bad-data-switch', 'value')]
+)
+def update_corr_cohort_scatter(tab, is_dark, ex1, ex2):
+    if tab != 'tab-corr':
+        return {}
+    exclude_bad = ex1 or ex2
+    template = "plotly_dark" if is_dark else "plotly_white"
+    
+    from src.backend.correlation import get_all_aligned_data, get_cohort_analysis
+    from src.backend.data_quality import filter_good_subjects
+    from src.frontend.visualizations import make_scatter_plot
+    import plotly.graph_objects as go
+    
+    df = get_all_aligned_data(exclude_bad=exclude_bad)
+    
+    # Calculate the mean of individual correlations for the override
+    corr_df = get_cohort_analysis()
+    if exclude_bad:
+        corr_df = filter_good_subjects(corr_df)
+    overall_r = corr_df['Bangle_Actigraph'].dropna().mean() if not corr_df.empty and 'Bangle_Actigraph' in corr_df.columns else None
+    
+    if df.empty or 'Actigraph' not in df.columns or 'Bangle' not in df.columns:
+        fig = go.Figure(layout=dict(template=template))
+        fig.add_annotation(text="No cohort data available", showarrow=False)
+        return fig
+        
+    fig = make_scatter_plot(df, 'Actigraph', 'Bangle', template=template, override_r=overall_r)
+    fig.update_layout(
+        xaxis_title='Actigraph (g)',
+        yaxis_title='Bangle (g)',
+        height=400,
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)'
+    )
+    return fig
+
+@app.callback(
     [Output('corr-scatter-plot', 'figure'),
      Output('corr-time-plot', 'figure')],
     Input('corr-subject-dd', 'value'),
@@ -553,6 +609,209 @@ def update_corr_detail_plots(subject, is_dark):
     
     return scatter_fig, time_fig
 
+
+# === EmotiBit Tab Callbacks ===
+
+@app.callback(
+    [Output('emo-overall-corr-value', 'children'),
+     Output('emo-overall-corr-info', 'children')],
+    [Input('exclude-bad-data-switch', 'value'),
+     Input('mobile-exclude-bad-data-switch', 'value'),
+     Input('tabs', 'active_tab')]
+)
+def update_emo_overall_corr_stats(ex1, ex2, tab):
+    if tab != 'tab-corr-emotibit':
+        return "", ""
+    exclude_bad = ex1 or ex2
+    
+    from src.backend.correlation import get_cohort_analysis
+    from src.backend.data_quality import filter_good_subjects
+    from src.constants import COLORS
+    
+    df = get_cohort_analysis()
+    if exclude_bad:
+        df = filter_good_subjects(df)
+    
+    if df.empty or 'EmotiBit_Actigraph' not in df.columns:
+        return html.Span("N/A", style={'fontSize': '2.8rem', 'fontWeight': '700', 'color': '#999'}), ""
+    
+    valid = df['EmotiBit_Actigraph'].dropna()
+    if valid.empty:
+        return html.Span("N/A", style={'fontSize': '2.8rem', 'fontWeight': '700', 'color': '#999'}), ""
+        
+    overall_r = valid.mean()
+    n_subjects = len(valid)
+    min_r = valid.min()
+    max_r = valid.max()
+    
+    if overall_r >= 0.7:
+        color = COLORS['ivy']
+    elif overall_r >= 0.5:
+        color = COLORS['buttercup']
+    else:
+        color = COLORS['azalea']
+    
+    suffix = " (filtered)" if exclude_bad else ""
+    
+    value = html.Span(f"r = {overall_r:.2f}", style={
+        'fontSize': '2.8rem', 'fontWeight': '700', 'color': color
+    })
+    info = f"N = {n_subjects} subjects{suffix}  |  Range: {min_r:.2f} → {max_r:.2f}"
+    
+    return value, info
+
+
+@app.callback(
+    Output('emo-corr-bar-chart', 'figure'),
+    [Input('tabs', 'active_tab'),
+     Input('theme-toggle', 'value'),
+     Input('exclude-bad-data-switch', 'value'),
+     Input('mobile-exclude-bad-data-switch', 'value')]
+)
+def update_emo_corr_bar_chart(tab, is_dark, ex1, ex2):
+    if tab != 'tab-corr-emotibit':
+        return {}
+    exclude_bad = ex1 or ex2
+    template = "plotly_dark" if is_dark else "plotly_white"
+    from src.backend.correlation import get_cohort_analysis
+    from src.backend.data_quality import filter_good_subjects
+    from src.frontend.visualizations import make_correlation_bar_chart
+    
+    df = get_cohort_analysis()
+    if exclude_bad:
+        df = filter_good_subjects(df)
+    return make_correlation_bar_chart(df, metric='EmotiBit_Actigraph', template=template)
+
+
+@app.callback(
+    Output('emo-corr-boxplot', 'figure'),
+    [Input('tabs', 'active_tab'),
+     Input('theme-toggle', 'value'),
+     Input('exclude-bad-data-switch', 'value'),
+     Input('mobile-exclude-bad-data-switch', 'value')]
+)
+def update_emo_corr_boxplot(tab, is_dark, ex1, ex2):
+    if tab != 'tab-corr-emotibit':
+        return {}
+    exclude_bad = ex1 or ex2
+    template = "plotly_dark" if is_dark else "plotly_white"
+    from src.backend.correlation import get_cohort_analysis
+    from src.backend.data_quality import filter_good_subjects
+    from src.frontend.visualizations import make_subgroup_boxplot
+    
+    df = get_cohort_analysis()
+    if exclude_bad:
+        df = filter_good_subjects(df)
+    
+    group_col = 'Gender' if 'Gender' in df.columns else 'Sex' if 'Sex' in df.columns else None
+    if group_col:
+        return make_subgroup_boxplot(df, group_col, metric='EmotiBit_Actigraph', template=template)
+    else:
+        import plotly.express as px
+        if 'EmotiBit_Actigraph' in df.columns:
+            fig = px.box(df, y='EmotiBit_Actigraph', points='all', title='Correlation Distribution', template=template)
+            fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            return fig
+        return {}
+
+@app.callback(
+    Output('emo-corr-cohort-scatter', 'figure'),
+    [Input('tabs', 'active_tab'),
+     Input('theme-toggle', 'value'),
+     Input('exclude-bad-data-switch', 'value'),
+     Input('mobile-exclude-bad-data-switch', 'value')]
+)
+def update_emo_corr_cohort_scatter(tab, is_dark, ex1, ex2):
+    if tab != 'tab-corr-emotibit':
+        return {}
+    exclude_bad = ex1 or ex2
+    template = "plotly_dark" if is_dark else "plotly_white"
+    
+    from src.backend.correlation import get_all_aligned_data, get_cohort_analysis
+    from src.backend.data_quality import filter_good_subjects
+    from src.frontend.visualizations import make_scatter_plot
+    import plotly.graph_objects as go
+    
+    df = get_all_aligned_data(exclude_bad=exclude_bad)
+    
+    # Calculate the mean of individual correlations for the override
+    corr_df = get_cohort_analysis()
+    if exclude_bad:
+        corr_df = filter_good_subjects(corr_df)
+    overall_r = corr_df['EmotiBit_Actigraph'].dropna().mean() if not corr_df.empty and 'EmotiBit_Actigraph' in corr_df.columns else None
+    
+    if df.empty or 'Actigraph' not in df.columns or 'EmotiBit' not in df.columns:
+        fig = go.Figure(layout=dict(template=template))
+        fig.add_annotation(text="No cohort data available", showarrow=False)
+        return fig
+        
+    fig = make_scatter_plot(df, 'Actigraph', 'EmotiBit', template=template, override_r=overall_r)
+    fig.update_layout(
+        xaxis_title='Actigraph (g)',
+        yaxis_title='EmotiBit (g)',
+        height=400,
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)'
+    )
+    return fig
+
+
+@app.callback(
+    [Output('emo-corr-scatter-plot', 'figure'),
+     Output('emo-corr-time-plot', 'figure')],
+    Input('emo-corr-subject-dd', 'value'),
+    Input('theme-toggle', 'value')
+)
+def update_emo_corr_detail_plots(subject, is_dark):
+    if not subject:
+        return {}, {}
+        
+    from src.backend.correlation import load_aligned_data
+    from src.frontend.visualizations import make_scatter_plot
+    import plotly.graph_objects as go
+    from src.constants import DEVICE_COLORS, PARTICIPANT_MAPPING
+    
+    df = load_aligned_data(subject)
+    template = "plotly_dark" if is_dark else "plotly_white"
+
+    if df is None or df.empty:
+        empty_fig = go.Figure(layout=dict(template=template))
+        empty_fig.add_annotation(text="Data not available", showarrow=False)
+        return empty_fig, empty_fig
+    
+    if 'Actigraph' in df.columns and 'EmotiBit' in df.columns:
+        scatter_fig = make_scatter_plot(df, 'Actigraph', 'EmotiBit', template=template)
+        scatter_fig.update_layout(
+            xaxis_title='Actigraph (g)',
+            yaxis_title='EmotiBit (g)',
+            height=300,
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)'
+        )
+    else:
+        scatter_fig = go.Figure(layout=dict(template=template))
+        scatter_fig.add_annotation(text="Missing Actigraph/EmotiBit data", showarrow=False)
+    
+    time_fig = go.Figure(layout=dict(template=template))
+    for dev in df.columns:
+        if dev.lower() not in ['actigraph', 'emotibit']:
+            continue
+        color = DEVICE_COLORS.get(dev.lower(), 'gray')
+        time_fig.add_trace(go.Scatter(
+            x=df.index,
+            y=df[dev],
+            name=dev,
+            mode='lines',
+            line=dict(color=color)
+        ))
+    time_fig.update_layout(
+        title=f"Participant {PARTICIPANT_MAPPING.get(str(subject), subject)}: Aligned Time Series (5s)",
+        height=300,
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)'
+    )
+    
+    return scatter_fig, time_fig
 
 @app.callback(
     Output('calorimetry-timeline-plot', 'figure'),
