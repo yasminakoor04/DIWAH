@@ -145,15 +145,7 @@ app.config.suppress_callback_exceptions = True
 # Set Flask secret key for session management
 app.server.secret_key = os.getenv('FLASK_SECRET_KEY', os.urandom(24).hex())
 
-# Add Basic Authentication if credentials are configured
-_auth_username = os.getenv('DASHBOARD_USERNAME')
-_auth_password = os.getenv('DASHBOARD_PASSWORD')
-if _auth_username and _auth_password:
-    from dash_auth import BasicAuth
-    BasicAuth(app, {_auth_username: _auth_password})
-    logger.info("Dashboard authentication enabled")
-else:
-    logger.warning("DASHBOARD_USERNAME/PASSWORD not set - running without authentication!")
+# Authentication has been removed.
 
 # Get subjects (excluding configured exclusions and ensuring they are valid participants)
 all_subjects = tag_values('subject')
