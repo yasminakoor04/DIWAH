@@ -244,3 +244,23 @@ h6 {
 .device-stats-title {
     margin: 0 0 8px 0;
 }
+
+/* Tabs in Dark Mode */
+[data-theme="dark"] .nav-tabs .nav-link {
+    color: var(--text-secondary);
+}
+
+[data-theme="dark"] .nav-tabs .nav-link:hover {
+    color: var(--text-primary);
+    border-color: var(--border-color) var(--border-color) transparent;
+}
+
+[data-theme="dark"] .nav-tabs .nav-link.active {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    border-color: var(--border-color) var(--border-color) var(--bg-secondary);
+}
+
+[data-theme="dark"] .nav-tabs {
+    border-bottom-color: var(--border-color);
+}
