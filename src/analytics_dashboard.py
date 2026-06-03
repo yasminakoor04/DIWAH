@@ -137,7 +137,8 @@ app = dash.Dash(
     __name__,
     external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.BOOTSTRAP],
     meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1"}],
-    assets_folder=os.path.join(os.path.dirname(__file__), 'assets')
+    assets_folder=os.path.join(os.path.dirname(__file__), 'assets'),
+    serve_locally=False
 )
 app.title = "DIWAH Analytics Dashboard"
 app.config.suppress_callback_exceptions = True

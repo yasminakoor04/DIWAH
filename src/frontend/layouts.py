@@ -1409,7 +1409,7 @@ def create_about_layout() -> html.Div:
                 _pipeline_step(1, "Raw Data Collection", "3 wearable devices × varying sampling rates", COLORS['buttercup']),
                 _pipeline_step(2, "Signal Synchronization", "Shiny App — manual cut, align & sync", COLORS['crocus']),
                 _pipeline_step(3, "Time-Series Storage", "InfluxDB — high-frequency sensor data", COLORS['azalea']),
-                _pipeline_step(4, "Feature Extraction", "FLIRT package — 60-second ML windows", COLORS['ivy']),
+                _pipeline_step(4, "Feature Extraction", "FLIRT package — 5-minute ML windows", COLORS['ivy']),
                 _pipeline_step(5, "Model Training", "Random Forest regression → predict METs", COLORS['soot']),
             ], xs=12, lg=5, className="mb-4"),
 
