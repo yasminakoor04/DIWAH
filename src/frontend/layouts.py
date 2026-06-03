@@ -1010,106 +1010,531 @@ def create_emotibit_correlation_layout(corr_df: pd.DataFrame, subjects: List[str
 
 def create_about_layout() -> html.Div:
     """
-    Create the 'About' tab layout driven by the README thesis context.
+    Create the 'About' tab layout — a visually appealing introduction
+    to the DIWAH thesis project and research context.
     """
     import dash
-    return html.Div([
-        # Header Section
-        html.Div([
-            html.H3("Predicting Exercise Intensity from Smartwatch Data: Device Capabilities and Limitations", 
-                   style={'margin': 0, 'fontWeight': '600', 'color': COLORS['soot']}),
-            html.P("A Bachelor's Thesis Project by Hanna Szalai & Yasmin Akoor.", 
-                  style={'margin': '5px 0 0 0', 'fontSize': '1.05rem', 'color': COLORS['soot']}),
-            html.P("In collaboration with the Linnaeus University DIWAH Study.", 
-                  style={'margin': '5px 0 0 0', 'fontSize': '0.95rem', 'color': '#6c757d', 'fontStyle': 'italic'})
+
+    # --- Shared style fragments ---
+    _pill_style = {
+        'display': 'inline-block', 'padding': '4px 14px',
+        'borderRadius': '20px', 'fontSize': '0.75rem',
+        'fontWeight': '700', 'letterSpacing': '0.5px',
+        'marginRight': '8px', 'marginBottom': '6px',
+    }
+
+    def _device_card(name, subtitle, accent, desc, badge_text):
+        """Build a single device showcase card."""
+        return html.Div([
+            # Top accent bar
+            html.Div(style={
+                'height': '4px',
+                'background': f'linear-gradient(90deg, {accent}, {accent}88)',
+                'borderRadius': '12px 12px 0 0',
+            }),
+            html.Div([
+                # Accent dot + Title row
+                html.Div([
+                    html.Div(style={
+                        'width': '10px', 'height': '10px', 'borderRadius': '50%',
+                        'background': accent, 'flexShrink': '0',
+                        'marginRight': '12px', 'marginTop': '2px',
+                    }),
+                    html.Div([
+                        html.H5(name, style={
+                            'margin': 0, 'fontWeight': '700',
+                            'color': 'var(--text-primary)',
+                        }),
+                        html.Span(subtitle, style={
+                            'fontSize': '0.8rem', 'color': 'var(--text-secondary)',
+                        }),
+                    ]),
+                ], style={'display': 'flex', 'alignItems': 'flex-start', 'marginBottom': '14px'}),
+                # Description
+                html.P(desc, style={
+                    'fontSize': '0.88rem', 'color': 'var(--text-secondary)',
+                    'lineHeight': '1.55', 'margin': '0 0 14px 0',
+                }),
+                # Badge
+                html.Span(badge_text, style={
+                    **_pill_style,
+                    'background': f'{accent}18', 'color': accent,
+                    'border': f'1px solid {accent}44',
+                }),
+            ], style={'padding': '20px 22px 18px'}),
+        ], className="card", style={
+            'borderRadius': '12px', 'overflow': 'hidden',
+            'boxShadow': 'var(--card-shadow)',
+            'transition': 'transform 0.2s ease, box-shadow 0.2s ease',
+            'height': '100%',
+        })
+
+    def _pipeline_step(number, title, subtitle, accent):
+        """Build a single pipeline step block."""
+        return html.Div([
+            html.Div([
+                html.Div(str(number), style={
+                    'width': '36px', 'height': '36px', 'borderRadius': '50%',
+                    'background': f'linear-gradient(135deg, {accent}, {accent}cc)',
+                    'color': '#fff', 'display': 'flex',
+                    'alignItems': 'center', 'justifyContent': 'center',
+                    'fontWeight': '800', 'fontSize': '0.95rem',
+                    'flexShrink': '0',
+                }),
+                html.Div([
+                    html.Span(title, style={
+                        'fontWeight': '700', 'fontSize': '0.92rem',
+                        'color': 'var(--text-primary)',
+                    }),
+                    html.Br(),
+                    html.Span(subtitle, style={
+                        'fontSize': '0.78rem', 'color': 'var(--text-secondary)',
+                    }),
+                ], style={'marginLeft': '14px'}),
+            ], style={'display': 'flex', 'alignItems': 'center'}),
         ], style={
-            'background': f"linear-gradient(135deg, {COLORS['buttercup']} 0%, {COLORS['lily']} 100%)",
-            'padding': '20px 25px',
-            'borderRadius': '12px',
-            'marginBottom': '25px',
-            'boxShadow': '0 2px 8px rgba(0,0,0,0.08)'
+            'padding': '16px 18px', 'borderRadius': '10px',
+            'background': 'var(--bg-secondary)',
+            'boxShadow': 'var(--card-shadow)',
+            'marginBottom': '10px',
+            'borderLeft': f'3px solid {accent}',
+        })
+
+    return html.Div([
+
+        # ========================================================
+        # HERO SECTION
+        # ========================================================
+        html.Div([
+            html.Div([
+                # Left: text content
+                html.Div([
+                    html.Div([
+                        html.Span("BACHELOR'S THESIS", style={
+                            **_pill_style,
+                            'background': 'rgba(255,255,255,0.35)',
+                            'color': COLORS['soot'], 'marginBottom': '16px',
+                        }),
+                        html.Span("LINNAEUS UNIVERSITY", style={
+                            **_pill_style,
+                            'background': 'rgba(255,255,255,0.35)',
+                            'color': COLORS['soot'], 'marginBottom': '16px',
+                        }),
+                    ]),
+                    html.H2("Predicting Exercise Intensity from Smartwatch Data", style={
+                        'fontWeight': '800', 'color': COLORS['soot'],
+                        'marginBottom': '6px', 'lineHeight': '1.25',
+                        'fontSize': '1.8rem',
+                    }),
+                    html.P("Device Capabilities & Limitations", style={
+                        'fontSize': '1.1rem', 'color': COLORS['soot'],
+                        'fontWeight': '500', 'marginBottom': '18px',
+                        'opacity': '0.75',
+                    }),
+                    html.P([
+                        "By ", html.Strong("Hanna Szalai"),
+                        " & ", html.Strong("Yasmin Akoor"),
+                    ], style={
+                        'fontSize': '0.95rem', 'color': COLORS['soot'],
+                        'marginBottom': '4px',
+                    }),
+                    html.P([
+                        "In collaboration with the ",
+                        html.A("DIWAH Study", href="https://lnu.se/en/research/research-groups/linnaeus-university-centre-for-data-intensive-sciences-and-applications/seed-projects/seed-project-development-of-an-intelligent-wearable-the-diwah-study/",
+                               target="_blank", style={
+                                   'color': COLORS['soot'], 'fontWeight': '600',
+                                   'textDecoration': 'underline',
+                               }),
+                        " — led by Patrick Bergman",
+                    ], style={
+                        'fontSize': '0.85rem', 'color': COLORS['soot'],
+                        'opacity': '0.7', 'fontStyle': 'italic',
+                    }),
+                ], style={'maxWidth': '600px'}),
+
+                # Right: quick-stat pills
+                html.Div([
+                    html.Div([
+                        html.Div("30", style={
+                            'fontSize': '2.2rem', 'fontWeight': '800',
+                            'color': COLORS['soot'], 'lineHeight': '1',
+                        }),
+                        html.Div("Participants", style={
+                            'fontSize': '0.78rem', 'color': COLORS['soot'],
+                            'opacity': '0.7', 'fontWeight': '600',
+                        }),
+                    ], style={
+                        'background': 'rgba(255,255,255,0.4)',
+                        'borderRadius': '12px', 'padding': '16px 22px',
+                        'textAlign': 'center', 'minWidth': '100px',
+                    }),
+                    html.Div([
+                        html.Div("4", style={
+                            'fontSize': '2.2rem', 'fontWeight': '800',
+                            'color': COLORS['soot'], 'lineHeight': '1',
+                        }),
+                        html.Div("Devices", style={
+                            'fontSize': '0.78rem', 'color': COLORS['soot'],
+                            'opacity': '0.7', 'fontWeight': '600',
+                        }),
+                    ], style={
+                        'background': 'rgba(255,255,255,0.4)',
+                        'borderRadius': '12px', 'padding': '16px 22px',
+                        'textAlign': 'center', 'minWidth': '100px',
+                    }),
+                    html.Div([
+                        html.Div("3", style={
+                            'fontSize': '2.2rem', 'fontWeight': '800',
+                            'color': COLORS['soot'], 'lineHeight': '1',
+                        }),
+                        html.Div("Sensors", style={
+                            'fontSize': '0.78rem', 'color': COLORS['soot'],
+                            'opacity': '0.7', 'fontWeight': '600',
+                        }),
+                    ], style={
+                        'background': 'rgba(255,255,255,0.4)',
+                        'borderRadius': '12px', 'padding': '16px 22px',
+                        'textAlign': 'center', 'minWidth': '100px',
+                    }),
+                ], style={
+                    'display': 'flex', 'gap': '12px',
+                    'flexWrap': 'wrap', 'justifyContent': 'flex-end',
+                    'alignItems': 'flex-start',
+                }),
+            ], style={
+                'display': 'flex', 'justifyContent': 'space-between',
+                'alignItems': 'center', 'flexWrap': 'wrap', 'gap': '20px',
+            }),
+        ], style={
+            'background': f'linear-gradient(135deg, {COLORS["buttercup"]} 0%, {COLORS["lily"]} 60%, #fff8dc 100%)',
+            'padding': '36px 32px',
+            'borderRadius': '16px',
+            'marginBottom': '30px',
+            'boxShadow': '0 4px 20px rgba(0,0,0,0.08)',
+            'position': 'relative',
+            'overflow': 'hidden',
         }),
 
-        # Overview & Challenge
+        # ========================================================
+        # THE CORE QUESTION
+        # ========================================================
+        html.Div([
+            html.Div([
+                html.Div([
+                    html.Span("The Core Question", style={
+                        'fontWeight': '700', 'fontSize': '1rem',
+                        'color': 'var(--text-primary)',
+                    }),
+                    html.P([
+                        "Can ",
+                        html.Span("affordable, open-source wearables", style={
+                            'fontWeight': '700', 'color': COLORS['ivy'],
+                        }),
+                        " predict exercise intensity as accurately as ",
+                        html.Span("expensive, research-grade devices", style={
+                            'fontWeight': '700', 'color': COLORS['crocus'],
+                        }),
+                        "? We compare predictions from each wearable against the ",
+                        html.Strong("Vyntus calorimetry system"),
+                        " — the clinical gold standard for energy expenditure measurement.",
+                    ], style={
+                        'margin': '6px 0 0 0', 'fontSize': '0.92rem',
+                        'color': 'var(--text-secondary)', 'lineHeight': '1.6',
+                    }),
+                ]),
+            ], style={'display': 'flex', 'alignItems': 'flex-start'}),
+        ], className="card", style={
+            'padding': '22px 26px', 'borderRadius': '12px',
+            'boxShadow': 'var(--card-shadow)', 'marginBottom': '30px',
+            'borderLeft': f'4px solid {COLORS["buttercup"]}',
+        }),
+
+        # ========================================================
+        # DEVICE SHOWCASE
+        # ========================================================
+        html.Div([
+            html.H4("The Devices", style={
+                'fontWeight': '700', 'marginBottom': '4px',
+                'color': 'var(--text-primary)',
+            }),
+            html.P("Four devices worn simultaneously during each exercise session, from consumer to clinical grade.", style={
+                'fontSize': '0.9rem', 'color': 'var(--text-secondary)',
+                'marginBottom': '20px',
+            }),
+        ]),
+
         dbc.Row([
             dbc.Col([
-                dbc.Card([
-                    dbc.CardHeader(html.H5("The Research Context", className="m-0")),
-                    dbc.CardBody([
-                        html.P([
-                            "Wearable sensors and machine learning are increasingly used to predict exercise energy expenditure to promote health, especially in the elderly. ",
-                            "However, popular commercial wearables (like Fitbit or Apple Watch) are expensive, 'black box' systems that restrict access to raw sensor data."
-                        ], className="card-text"),
+                _device_card(
+                    "Bangle.js 2", "Open-source smartwatch",
+                    COLORS['ivy'],
+                    "A hackable, community-driven JavaScript smartwatch providing full access to raw heart rate and accelerometer streams at ~12.5 Hz.",
+                    "Fully Open-Source · ~€30",
+                )
+            ], xs=12, sm=6, lg=3, className="mb-3"),
+            dbc.Col([
+                _device_card(
+                    "EmotiBit", "Open biosensor platform",
+                    COLORS['azalea'],
+                    "Research-ready biometric sensor capturing PPG, EDA, and temperature with timestamped data export for reproducible experiments.",
+                    "Open-Source · ~€300",
+                )
+            ], xs=12, sm=6, lg=3, className="mb-3"),
+            dbc.Col([
+                _device_card(
+                    "ActiGraph", "Research-grade accelerometer",
+                    COLORS['crocus'],
+                    "The industry-standard accelerometer used in clinical studies worldwide, providing our research-grade reference baseline.",
+                    "Proprietary SDK · ~€500",
+                )
+            ], xs=12, sm=6, lg=3, className="mb-3"),
+            dbc.Col([
+                _device_card(
+                    "Vyntus CPX", "Clinical calorimetry",
+                    COLORS['buttercup'],
+                    "Medical-grade indirect calorimetry via a breathing mask that measures exact oxygen consumption — the gold standard for MET values.",
+                    "Gold Standard · Medical",
+                )
+            ], xs=12, sm=6, lg=3, className="mb-3"),
+        ], className="mb-4"),
+
+        # ========================================================
+        # RESEARCH QUESTIONS
+        # ========================================================
+        html.Div([
+            html.H4("Research Questions", style={
+                'fontWeight': '700', 'marginBottom': '4px',
+                'color': 'var(--text-primary)',
+            }),
+            html.P("Two distinct challenges — one in data engineering, one in prediction.", style={
+                'fontSize': '0.9rem', 'color': 'var(--text-secondary)',
+                'marginBottom': '20px',
+            }),
+        ]),
+
+        dbc.Row([
+            dbc.Col([
+                html.Div([
+                    html.Div(style={
+                        'height': '4px',
+                        'background': f'linear-gradient(90deg, {COLORS["crocus"]}, {COLORS["crocus"]}88)',
+                        'borderRadius': '12px 12px 0 0',
+                    }),
+                    html.Div([
+                        html.Div([
+                            html.Span("RQ1", style={
+                                **_pill_style,
+                                'background': f'{COLORS["crocus"]}18',
+                                'color': COLORS['crocus'],
+                                'border': f'1px solid {COLORS["crocus"]}44',
+                            }),
+                            html.Span("Design Science", style={
+                                'fontSize': '0.78rem', 'color': 'var(--text-secondary)',
+                                'fontWeight': '600',
+                            }),
+                        ], style={'display': 'flex', 'alignItems': 'center', 'gap': '6px', 'marginBottom': '12px'}),
+                        html.H5("Data Synchronization", style={
+                            'fontWeight': '700', 'marginBottom': '10px',
+                            'color': 'var(--text-primary)',
+                        }),
                         html.P(
-                            "This thesis investigates whether significantly cheaper, open-source consumer wearables can reliably predict exercise intensity using raw heart rate and accelerometer data.",
-                            className="card-text fw-bold text-primary"
+                            "How can heterogeneous data streams from three different wearable devices be reliably synchronized and mathematically aligned for comparative analysis?",
+                            style={
+                                'fontSize': '0.88rem', 'color': 'var(--text-secondary)',
+                                'lineHeight': '1.6', 'margin': 0,
+                            },
                         ),
-                        html.P(
-                            "By comparing models trained on open-source devices (EmotiBit, Bangle.js) against a research-grade clinical baseline (ActiGraph), we evaluate their predictive accuracy against a medical-grade Vyntus calorimetry systems (a breathing mask that tracks exact oxygen consumption).",
-                            className="card-text text-muted"
-                        )
-                    ])
-                ], className="h-100 shadow-sm dashboard-card")
-            ], md=12, lg=7, className="mb-4"),
+                    ], style={'padding': '22px 24px'}),
+                ], className="card", style={
+                    'borderRadius': '12px', 'overflow': 'hidden',
+                    'boxShadow': 'var(--card-shadow)', 'height': '100%',
+                }),
+            ], xs=12, lg=6, className="mb-3"),
 
-            # Research Questions
             dbc.Col([
-                dbc.Card([
-                    dbc.CardHeader(html.H5("Research Questions", className="m-0")),
-                    dbc.CardBody([
-                        html.P("This project aims to bridge the knowledge gap through two distinct research phases:", className="card-text"),
-                        html.Ul([
-                            html.Li([html.Strong("RQ1 (Design Science):"), " How can heterogeneous data streams from three different wearable devices with varying sampling rates, missing data, and clock drift be reliably synchronized and mathematically aligned for comparative analysis?"]),
-                            html.Br(),
-                            html.Li([html.Strong("RQ2 (Controlled Experiment):"), " Given properly synchronized heart rate and accelerometer data across heterogeneous wearables, is it feasible to predict exercise intensity (METs), and how does prediction performance vary by device architecture?"])
-                        ]),
-                    ])
-                ], className="h-100 shadow-sm dashboard-card", style={'borderLeft': f'4px solid {COLORS["crocus"]}'})
-            ], md=12, lg=5, className="mb-4"),
+                html.Div([
+                    html.Div(style={
+                        'height': '4px',
+                        'background': f'linear-gradient(90deg, {COLORS["ivy"]}, {COLORS["ivy"]}88)',
+                        'borderRadius': '12px 12px 0 0',
+                    }),
+                    html.Div([
+                        html.Div([
+                            html.Span("RQ2", style={
+                                **_pill_style,
+                                'background': f'{COLORS["ivy"]}18',
+                                'color': COLORS['ivy'],
+                                'border': f'1px solid {COLORS["ivy"]}44',
+                            }),
+                            html.Span("Controlled Experiment", style={
+                                'fontSize': '0.78rem', 'color': 'var(--text-secondary)',
+                                'fontWeight': '600',
+                            }),
+                        ], style={'display': 'flex', 'alignItems': 'center', 'gap': '6px', 'marginBottom': '12px'}),
+                        html.H5("Intensity Prediction", style={
+                            'fontWeight': '700', 'marginBottom': '10px',
+                            'color': 'var(--text-primary)',
+                        }),
+                        html.P(
+                            "Given properly synchronized heart rate and accelerometer data across heterogeneous wearables, is it feasible to predict exercise intensity (METs), and how does prediction performance vary by device architecture?",
+                            style={
+                                'fontSize': '0.88rem', 'color': 'var(--text-secondary)',
+                                'lineHeight': '1.6', 'margin': 0,
+                            },
+                        ),
+                    ], style={'padding': '22px 24px'}),
+                ], className="card", style={
+                    'borderRadius': '12px', 'overflow': 'hidden',
+                    'boxShadow': 'var(--card-shadow)', 'height': '100%',
+                }),
+            ], xs=12, lg=6, className="mb-3"),
+        ], className="mb-4"),
+
+        # ========================================================
+        # DATA PIPELINE
+        # ========================================================
+        html.Div([
+            html.H4("Data Pipeline", style={
+                'fontWeight': '700', 'marginBottom': '4px',
+                'color': 'var(--text-primary)',
+            }),
+            html.P("From raw multi-device sensor streams to exercise intensity predictions.", style={
+                'fontSize': '0.9rem', 'color': 'var(--text-secondary)',
+                'marginBottom': '20px',
+            }),
         ]),
 
-        # Hardware & Alignment Visuals
-        html.H4("Methodology & Visual Alignment", className="mt-3 mb-3 text-primary", style={'borderBottom': f'2px solid {COLORS["buttercup"]}', 'paddingBottom': '10px'}),
-        
         dbc.Row([
             dbc.Col([
-                dbc.Card([
-                    dbc.CardImg(src=dash.get_asset_url('pictures/image.png'), top=True, style={'maxHeight': '300px', 'objectFit': 'contain', 'padding': '10px'}),
-                    dbc.CardBody([
-                        html.H5("The Hardware Suite", className="card-title"),
-                        html.P("All the wearables and clinical devices worn by a subject during data collection. The data pipeline extracts hardware-specific features to assess their absolute predictive caps.", className="card-text text-muted")
-                    ])
-                ], className="h-100 shadow-sm dashboard-card")
-            ], md=12, lg=5, className="mb-4"),
+                _pipeline_step(1, "Raw Data Collection", "3 wearable devices × varying sampling rates", COLORS['buttercup']),
+                _pipeline_step(2, "Signal Synchronization", "Shiny App — manual cut, align & sync", COLORS['crocus']),
+                _pipeline_step(3, "Time-Series Storage", "InfluxDB — high-frequency sensor data", COLORS['azalea']),
+                _pipeline_step(4, "Feature Extraction", "FLIRT package — 5-second physiological epochs", COLORS['ivy']),
+                _pipeline_step(5, "Model Training", "Random Forest regression → predict METs", COLORS['soot']),
+            ], xs=12, lg=5, className="mb-4"),
 
             dbc.Col([
-                dbc.Card([
-                    dbc.CardImg(src=dash.get_asset_url('pictures/alignment_shiny_app.png'), top=True, style={'maxHeight': '300px', 'objectFit': 'cover', 'objectPosition': 'top'}),
-                    dbc.CardBody([
-                        html.H5("Signal Synchronization", className="card-title"),
+                html.Div([
+                    dbc.CardImg(
+                        src=dash.get_asset_url('pictures/alignment_shiny_app.png'),
+                        top=True,
+                        style={
+                            'maxHeight': '260px', 'objectFit': 'cover',
+                            'objectPosition': 'top', 'borderRadius': '10px 10px 0 0',
+                        },
+                    ),
+                    html.Div([
+                        html.H5("Signal Synchronization Tool", style={
+                            'fontWeight': '700', 'marginBottom': '8px',
+                            'color': 'var(--text-primary)',
+                        }),
                         html.P([
-                            "We utilized a custom ", 
-                            html.Strong("Shiny App"), 
-                            " to manually cut, align, and synchronize the raw data. The synchronized epochs created from this tool form the core dataset we ingest to calculate highly reliable cross-correlation markers (r > 0.90)."
-                        ], className="card-text text-muted")
-                    ])
-                ], className="h-100 shadow-sm dashboard-card")
-            ], md=12, lg=7, className="mb-4"),
+                            "A custom ",
+                            html.Strong("R Shiny App"),
+                            " enables visual cutting, alignment, and synchronization of raw data across all devices for each participant. The resulting synchronized epochs form the core dataset that powers this dashboard.",
+                        ], style={
+                            'fontSize': '0.88rem', 'color': 'var(--text-secondary)',
+                            'lineHeight': '1.55', 'margin': 0,
+                        }),
+                    ], style={'padding': '18px 20px'}),
+                ], className="card", style={
+                    'borderRadius': '12px', 'overflow': 'hidden',
+                    'boxShadow': 'var(--card-shadow)',
+                }),
+            ], xs=12, lg=7, className="mb-4"),
         ]),
 
-        # Steps/Milestones
-        dbc.Card([
-            dbc.CardHeader(html.H5("Steps, Milestones, and Actions", className="m-0")),
-            dbc.CardBody([
-                html.Ul([
-                    html.Li([html.Strong("Data Integration Tools: "), "Develop parsing and mathematical alignment tools to synchronize the raw, un-synced data from the ActiGraph, EmotiBit, and Bangle.js."]),
-                    html.Li([html.Strong("Database Setup: "), "Deploy an InfluxDB architecture specifically optimized for high-frequency time-series sensor storage."]),
-                    html.Li([html.Strong("Dashboard Development: "), "Build a visual dashboard to manually validate the data alignment and inspect the heart rate and movement data prior to machine learning."]),
-                    html.Li([html.Strong("Feature Extraction: "), "Use the open-source FLIRT Python package to extract standardized physiological features from 5-second data epochs."]),
-                    html.Li([html.Strong("Model Training & Evaluation: "), "Train simple regression and basic ML models (e.g., Random Forest) on the extracted features, and compare their predicted MET values against the Vyntus golden standard."])
-                ], className="mt-2 mb-0", style={'lineHeight': '1.8'})
-            ])
-        ], className="mb-5 shadow-sm dashboard-card", style={'borderLeft': f'4px solid {COLORS["ivy"]}'})
+        # ========================================================
+        # HARDWARE PHOTO
+        # ========================================================
+        html.Div([
+            html.Div([
+                dbc.Row([
+                    dbc.Col([
+                        html.Img(
+                            src=dash.get_asset_url('pictures/image.png'),
+                            style={
+                                'width': '100%', 'maxHeight': '320px',
+                                'objectFit': 'contain', 'borderRadius': '10px',
+                            },
+                        ),
+                    ], xs=12, lg=5, style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'center'}),
+                    dbc.Col([
+                        html.Div([
+                            html.H5("Data Collection Setup", style={
+                                'fontWeight': '700', 'marginBottom': '10px',
+                                'color': 'var(--text-primary)',
+                            }),
+                            html.P(
+                                "All four devices are worn simultaneously by each participant during a controlled exercise protocol. This ensures we capture identical physiological events across every sensor, allowing direct head-to-head comparison of prediction accuracy.",
+                                style={
+                                    'fontSize': '0.9rem', 'color': 'var(--text-secondary)',
+                                    'lineHeight': '1.6', 'marginBottom': '16px',
+                                },
+                            ),
+                            html.Div([
+                                html.Span("Heart Rate", style={
+                                    **_pill_style,
+                                    'background': f'{COLORS["azalea"]}15',
+                                    'color': COLORS['azalea'],
+                                    'border': f'1px solid {COLORS["azalea"]}33',
+                                }),
+                                html.Span("Accelerometer", style={
+                                    **_pill_style,
+                                    'background': f'{COLORS["ivy"]}15',
+                                    'color': COLORS['ivy'],
+                                    'border': f'1px solid {COLORS["ivy"]}33',
+                                }),
+                                html.Span("VO₂ (Calorimetry)", style={
+                                    **_pill_style,
+                                    'background': f'{COLORS["crocus"]}15',
+                                    'color': COLORS['crocus'],
+                                    'border': f'1px solid {COLORS["crocus"]}33',
+                                }),
+                            ]),
+                        ], style={'padding': '10px 0'}),
+                    ], xs=12, lg=7),
+                ], className="g-4"),
+            ], style={'padding': '24px'}),
+        ], className="card", style={
+            'borderRadius': '12px', 'boxShadow': 'var(--card-shadow)',
+            'marginBottom': '30px', 'overflow': 'hidden',
+        }),
+
+        # ========================================================
+        # FOOTER
+        # ========================================================
+        html.Div([
+            html.Div([
+                html.Div([
+                    html.Span("DIWAH", style={
+                        'fontWeight': '800', 'fontSize': '1.1rem',
+                        'color': 'var(--text-primary)', 'marginRight': '6px',
+                    }),
+                    html.Span("·", style={'margin': '0 8px', 'color': 'var(--text-secondary)'}),
+                    html.Span("Design of an Intelligent Wearable for Activity and Health", style={
+                        'fontSize': '0.85rem', 'color': 'var(--text-secondary)',
+                        'fontStyle': 'italic',
+                    }),
+                ], style={'display': 'flex', 'alignItems': 'center', 'flexWrap': 'wrap'}),
+                html.Div([
+                    html.A("Linnaeus University", href="https://lnu.se", target="_blank", style={
+                        'fontSize': '0.82rem', 'color': 'var(--text-secondary)',
+                        'textDecoration': 'none', 'marginRight': '16px',
+                    }),
+                    html.Span("© 2026 · MIT License", style={
+                        'fontSize': '0.82rem', 'color': 'var(--text-secondary)',
+                    }),
+                ], style={'display': 'flex', 'alignItems': 'center', 'flexWrap': 'wrap'}),
+            ], style={
+                'display': 'flex', 'justifyContent': 'space-between',
+                'alignItems': 'center', 'flexWrap': 'wrap', 'gap': '10px',
+            }),
+        ], style={
+            'padding': '18px 26px',
+            'borderTop': f'2px solid {COLORS["buttercup"]}',
+            'marginTop': '10px',
+        }),
 
     ], className="p-4")
 
